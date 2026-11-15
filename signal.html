@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#000000">
+<title>FM · 收音机</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{
+  background:#06070a;color:#b8c0d8;min-height:100vh;
+  font-family:'Courier New',monospace;
+  display:flex;align-items:center;justify-content:center;
+}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.8) 100%);}
+#scan{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.22;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(160,175,255,.04) 3px,transparent 4px);}
+.corner{position:fixed;z-index:3;font-size:10px;letter-spacing:.22em;color:rgba(130,135,150,.4);pointer-events:none;user-select:none;}
+.corner.tl{top:14px;left:16px;}
+.corner.br{bottom:14px;right:16px;}
+
+.radio{
+  position:relative;z-index:4;width:min(92vw,360px);margin:0 auto;
+  background:linear-gradient(180deg,#1a1c22,#0d0e12 60%,#0a0b0e);
+  border:1px solid rgba(255,255,255,.06);border-radius:14px;
+  box-shadow:0 30px 80px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -2px 6px rgba(0,0,0,.6);
+  padding:22px 20px 20px;
+}
+.brand{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+.brand .b{font-size:11px;letter-spacing:.3em;color:#c8cfdc;}
+.brand .m{font-size:9px;letter-spacing:.24em;color:#565c6e;}
+
+/* 刻度盘 */
+.dial{
+  position:relative;height:54px;background:linear-gradient(180deg,#08090c,#111319);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin-bottom:14px;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.8);
+}
+.ticks{position:absolute;inset:0;}
+.tick{position:absolute;bottom:6px;transform:translateX(-50%);}
+.tick .n{font-size:8px;color:#7a8090;letter-spacing:.05em;}
+.tick .l{width:1px;height:10px;background:rgba(200,210,230,.25);margin:2px auto 0;}
+.dial .glass{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.1));}
+.needle{
+  position:absolute;top:4px;bottom:4px;width:2px;background:#e05050;
+  box-shadow:0 0 8px rgba(224,80,80,.8);transform:translateX(-1px);
+  transition:left .08s linear;
+}
+
+/* 中间行：旋钮 + 读数 + 信号表 */
+.mid{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.knobwrap{width:74px;text-align:center;}
+.knob{
+  width:58px;height:58px;margin:0 auto;border-radius:50%;cursor:ns-resize;touch-action:none;
+  background:radial-gradient(circle at 32% 28%,#3a3f49,#16181e 70%);
+  box-shadow:0 6px 16px rgba(0,0,0,.7), inset 0 1px 2px rgba(255,255,255,.15);
+  position:relative;
+}
+.knob::after{
+  content:'';position:absolute;left:50%;top:8px;width:3px;height:14px;background:#c8cfdc;transform:translateX(-50%);border-radius:2px;
+}
+.knob .cap{position:absolute;inset:12px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2c313b,#101216);}
+.knobwrap .k{font-size:8px;letter-spacing:.2em;color:#565c6e;margin-top:6px;}
+
+.readout{text-align:center;flex:1;}
+.readout .f{font-size:26px;color:#eef0ff;letter-spacing:.04em;text-shadow:0 0 14px rgba(160,175,255,.3);}
+.readout .u{font-size:9px;color:#565c6e;letter-spacing:.24em;}
+
+.meter{display:flex;gap:3px;align-items:flex-end;height:30px;width:58px;}
+.meter i{flex:1;background:rgba(143,160,224,.14);border-radius:1px;transition:background .1s;}
+.meter i.on{background:#8fa0e0;box-shadow:0 0 5px rgba(143,160,224,.6);}
+
+/* 喇叭网 */
+.grille{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:14px;padding:8px;
+  background:#0a0b0e;border-radius:6px;border:1px solid rgba(255,255,255,.05);}
+.grille i{aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 40% 35%,#2a2e36,#0c0d10 70%);}
+
+/* LCD 数据窗 */
+.lcd{
+  min-height:58px;background:#05060a;border:1px solid rgba(230,201,160,.14);border-radius:5px;
+  padding:9px 11px;font-size:11px;line-height:1.7;color:#4a5060;word-break:break-all;
+  display:none;text-align:left;overflow:hidden;
+}
+.lcd.on{display:block;}
+.lcd .h{color:#8a6a3a;font-size:9px;letter-spacing:.26em;margin-bottom:4px;}
+.lcd .b64{color:#c9b48c;font-family:'Courier New',monospace;}
+.lcd .cursor{color:#8a6a3a;animation:blink 1s steps(1) infinite;}
+@keyframes blink{50%{opacity:0;}}
+
+.hint{margin-top:12px;font-size:9px;letter-spacing:.2em;color:#3a4050;}
+.back{margin-top:16px;text-align:center;}
+.back a{color:#565c6e;text-decoration:none;font-size:10px;letter-spacing:.3em;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2px;transition:all .3s;}
+.back a:hover{color:#c6d0f4;border-color:rgba(160,175,255,.4);}
+</style>
+<style>
+/* ===== 质感层：暖色木质收音机 + 胶片颗粒 ===== */
+body{background:#0a0705;color:#cbb590;}
+body::after{content:'';position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.32;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+#vignette{background:radial-gradient(ellipse at center,transparent 28%,rgba(24,14,5,.88) 100%);}
+#scan{opacity:.16;}
+
+.radio{
+  background:
+    linear-gradient(180deg,rgba(255,235,200,.05),rgba(0,0,0,.16)),
+    repeating-linear-gradient(90deg,rgba(128,80,40,.18) 0 3px,rgba(96,58,28,.16) 3px 5px,rgba(140,88,46,.18) 5px 9px),
+    linear-gradient(180deg,#2b1c10,#1a110a 55%,#120c07);
+  border:1px solid rgba(190,140,85,.26);border-radius:12px;
+  box-shadow:0 36px 90px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,220,170,.14), inset 0 -3px 10px rgba(0,0,0,.7);
+}
+.radio::before{content:'';position:absolute;inset:0;border-radius:12px;pointer-events:none;opacity:.55;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+.dial{background:linear-gradient(180deg,#0c0805,#1c130a);border:1px solid rgba(210,150,90,.2);
+  box-shadow:inset 0 3px 12px rgba(0,0,0,.9), inset 0 -1px 0 rgba(255,200,140,.08);}
+.dial .glass{background:linear-gradient(180deg,rgba(255,210,150,.12),rgba(0,0,0,.16));}
+.tick .n{color:#b09770;}
+
+.knob{
+  background:
+    repeating-conic-gradient(from 0deg,rgba(255,235,200,.06) 0 3deg,rgba(0,0,0,.14) 3deg 6deg),
+    radial-gradient(circle at 34% 28%,#5f4830,#24150a 72%);
+  box-shadow:0 8px 18px rgba(0,0,0,.8), inset 0 1px 2px rgba(255,220,170,.2), inset 0 -3px 6px rgba(0,0,0,.6);
+}
+.knob .cap{background:radial-gradient(circle at 35% 30%,#3a2c1b,#140d06);}
+.knob::after{background:#d8c39a;box-shadow:0 0 5px rgba(230,180,110,.55);}
+
+.brand .b{color:#dcc9a0;}
+.readout .f{color:#f2e6c8;text-shadow:0 0 14px rgba(230,180,110,.35);}
+.meter i{background:rgba(224,160,80,.14);}
+.meter i.on{background:#e0a050;box-shadow:0 0 6px rgba(224,160,80,.7);}
+.grille i{background:radial-gradient(circle at 40% 35%,#2b2016,#0c0805 70%);}
+.lcd .h{color:#a0763a;}
+.hint{color:#4a3826;}
+</style>
+</head>
+<body>
+<div id="vignette"></div>
+<div id="scan"></div>
+<div class="corner tl">NODE 07 · SIGNAL 62%</div>
+<div class="corner br">Meyrin · 仓库</div>
+
+<div class="radio">
+  <div class="brand"><span class="b">NORDLAND</span><span class="m">UMBRA-7 · FM/AM</span></div>
+
+  <div class="dial" id="dial">
+    <div class="ticks" id="ticks"></div>
+    <div class="needle" id="needle" style="left:50%"></div>
+    <div class="glass"></div>
+  </div>
+
+  <div class="mid">
+    <div class="knobwrap">
+      <div class="knob" id="knob"><div class="cap"></div></div>
+      <div class="k">TUNE</div>
+    </div>
+    <div class="readout"><div class="f"><span id="freq">96.0</span></div><div class="u">MHz</div></div>
+    <div class="meter" id="meter">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+  </div>
+
+  <div class="grille" id="grille"></div>
+
+  <div class="lcd" id="lcd">
+    <div class="h">RX · 108.0 MHz · DATA</div>
+    <div class="b64" id="b64"><span class="cursor">▌</span></div>
+  </div>
+
+  <div class="hint">转动旋钮 · 收听各个频道</div>
+  <div class="back"><a href="门.html">回到终端</a></div>
+</div>
+
+<script>
+(function(){
+  var freqEl = document.getElementById('freq');
+  var needle = document.getElementById('needle');
+  var meter = document.getElementById('meter');
+  var lcd = document.getElementById('lcd');
+  var b64El = document.getElementById('b64');
+  var knob = document.getElementById('knob');
+
+  var msg = '门不认人，只认名字。你叫什么名字？46.2330 / 6.0556';
+  var fullB64 = btoa(unescape(encodeURIComponent(msg)));
+
+  var LO = 87.5, HI = 108.0, freq = 96.0;
+
+  /* 刻度盘刻度 */
+  var ticksEl = document.getElementById('ticks');
+  var labels = [88, 92, 96, 100, 104, 108];
+  labels.forEach(function(f){
+    var t = document.createElement('div');
+    t.className = 'tick';
+    t.style.left = ((f - LO) / (HI - LO) * 100) + '%';
+    t.innerHTML = '<div class="n">' + f + '</div><div class="l"></div>';
+    ticksEl.appendChild(t);
+  });
+
+  /* 喇叭网 */
+  var grille = document.getElementById('grille');
+  for(var g = 0; g < 60; g++){ grille.appendChild(document.createElement('i')); }
+
+  /* ============ 音频 ============ */
+  var ac = null, master = null, echo = null, staticGain = null;
+
+  function ensureAudio(){
+    if(ac){ if(ac.state === 'suspended') ac.resume(); return; }
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    ac = new Ctx(); ac.resume();
+    master = ac.createGain(); master.gain.value = 0.85; master.connect(ac.destination);
+
+    /* 回声总线（让音乐像电台） */
+    echo = ac.createDelay(1.0); echo.delayTime.value = 0.34;
+    var fb = ac.createGain(); fb.gain.value = 0.34;
+    echo.connect(fb); fb.connect(echo); echo.connect(master);
+
+    /* 常驻底噪 */
+    var buf = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate);
+    var d = buf.getChannelData(0);
+    for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    var ns = ac.createBufferSource(); ns.buffer=buf; ns.loop=true;
+    var lp = ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1700;
+    staticGain = ac.createGain(); staticGain.gain.value = 0.05;
+    ns.connect(lp); lp.connect(staticGain); staticGain.connect(master);
+    ns.start();
+  }
+
+  function mkNoise(){ var b=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);var d=b.getChannelData(0);for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b; }
+
+  /* 音乐台：铺底 + 琶音 + 回声 */
+  function buildMusic(base){
+    var g = ac.createGain(); g.gain.value = 0; g.connect(echo);
+    var chords = [
+      [base, base*1.26, base*1.5],
+      [base*0.89, base*1.12, base*1.335],
+      [base*0.79, base*1.0, base*1.19]
+    ];
+    var pad = [], i = 0;
+    function chord(){
+      pad.forEach(function(o){ try{o.stop();}catch(e){} }); pad = [];
+      var c = chords[i % chords.length]; i++;
+      c.forEach(function(f){
+        var o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+        o.detune.value = (Math.random()*8 - 4);
+        var og = ac.createGain(); og.gain.value = 0.028;
+        o.connect(og); og.connect(g); o.start(); pad.push(o);
+      });
+      /* 琶音（通过回声形成旋律感） */
+      var arp = [c[0]*2, c[1]*2, c[2]*2, c[0]*4];
+      arp.forEach(function(f, k){
+        var o = ac.createOscillator(); o.type = 'square'; o.frequency.value = f;
+        var og = ac.createGain();
+        var t = ac.currentTime + k * 0.16;
+        og.gain.setValueAtTime(0.0001, t);
+        og.gain.exponentialRampToValueAtTime(0.012, t + 0.01);
+        og.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+        o.connect(og); og.connect(g); o.start(t); o.stop(t + 0.16);
+      });
+    }
+    chord(); setInterval(chord, 3800);
+    return g;
+  }
+
+  /* 人声台：含糊的远处说话 */
+  function buildTalk(){
+    var g = ac.createGain(); g.gain.value = 0; g.connect(master);
+    var src = ac.createBufferSource(); src.buffer = mkNoise(); src.loop = true;
+    var bp = ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=820; bp.Q.value=1.4;
+    var am = ac.createGain(); am.gain.value=0.5;
+    var lfo = ac.createOscillator(); lfo.type='sine'; lfo.frequency.value=4.5;
+    var lg = ac.createGain(); lg.gain.value=0.5;
+    lfo.connect(lg); lg.connect(am.gain);
+    var wob = ac.createOscillator(); wob.frequency.value=0.9;
+    var wg = ac.createGain(); wg.gain.value=260;
+    wob.connect(wg); wg.connect(bp.frequency);
+    src.connect(bp); bp.connect(am); am.connect(g);
+    src.start(); lfo.start(); wob.start();
+    return g;
+  }
+
+  /* 死寂台 */
+  function buildDead(){
+    var g = ac.createGain(); g.gain.value = 0; g.connect(master);
+    var o = ac.createOscillator(); o.type='sine'; o.frequency.value=50;
+    var o2 = ac.createOscillator(); o2.type='sine'; o2.frequency.value=120;
+    var g2 = ac.createGain(); g2.gain.value=0.15;
+    o.connect(g); o2.connect(g2); g2.connect(g); o.start(); o2.start();
+    return g;
+  }
+
+  /* 特殊台：7.39Hz 心跳 + 数据脉冲 */
+  function buildSpecial(){
+    var g = ac.createGain(); g.gain.value = 0; g.connect(master);
+    var o = ac.createOscillator(); o.type='sine'; o.frequency.value=88;
+    var og = ac.createGain(); og.gain.value=0.5;
+    var lfo = ac.createOscillator(); lfo.type='sine'; lfo.frequency.value=7.39;
+    var lg = ac.createGain(); lg.gain.value=0.5;
+    lfo.connect(lg); lg.connect(og.gain);
+    o.connect(og); og.connect(g); o.start(); lfo.start();
+    setInterval(function(){
+      if(g.gain.value < 0.05) return;
+      var b = ac.createOscillator(); b.type='square'; b.frequency.value=1100+Math.random()*700;
+      var bg = ac.createGain();
+      bg.gain.setValueAtTime(0.0001, ac.currentTime);
+      bg.gain.exponentialRampToValueAtTime(0.02, ac.currentTime+0.002);
+      bg.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.03);
+      b.connect(bg); bg.connect(g); b.start(); b.stop(ac.currentTime+0.04);
+    }, 200);
+    return g;
+  }
+
+  var stations = [
+    { f: 89.3,  g: null, build: function(){ return buildMusic(220); } },
+    { f: 94.7,  g: null, build: function(){ return buildMusic(174); } },
+    { f: 99.9,  g: null, build: function(){ return buildTalk(); } },
+    { f: 104.5, g: null, build: function(){ return buildDead(); } },
+    { f: 108.0, g: null, build: function(){ return buildSpecial(); } }
+  ];
+
+  function setFreq(v){
+    freq = Math.max(LO, Math.min(HI, v));
+    freqEl.textContent = freq.toFixed(1);
+    needle.style.left = ((freq - LO) / (HI - LO) * 100) + '%';
+    var ang = (freq - (LO + HI) / 2) / ((HI - LO) / 2) * 135;
+    knob.style.transform = 'rotate(' + ang.toFixed(1) + 'deg)';
+    if(!ac) return;
+    var strongest = 0;
+    stations.forEach(function(s){
+      if(!s.g){ s.g = s.build(); }
+      var d = Math.abs(freq - s.f);
+      var gain = d < 0.3 ? Math.max(0, (1 - d/0.3)) * 0.55 : 0;
+      s.g.gain.value = gain;
+      strongest = Math.max(strongest, gain);
+    });
+    if(staticGain) staticGain.gain.value = Math.max(0.02, 0.07 - strongest*0.7);
+    var bars = meter.querySelectorAll('i');
+    var on = Math.round(strongest / 0.55 * bars.length);
+    bars.forEach(function(b, i){ b.classList.toggle('on', i < on); });
+
+    updateLCD();
+  }
+
+  /* ============ base64 数据接收 ============ */
+  var rxChars = 0, rxDone = false;
+  function updateLCD(){
+    var on = Math.abs(freq - 108.0) < 0.12;
+    if(on){ lcd.classList.add('on'); }
+    else { lcd.classList.remove('on'); rxChars = 0; rxDone = false; renderRx(); }
+  }
+  function renderRx(){
+    if(!rxDone){
+      b64El.innerHTML = fullB64.substr(0, rxChars) + '<span class="cursor">▌</span>';
+    } else {
+      b64El.innerHTML = fullB64 + '<span class="dim" style="color:#6a6a5a"> · 记录完成</span>';
+    }
+  }
+  setInterval(function(){
+    if(Math.abs(freq - 108.0) < 0.12 && !rxDone){
+      rxChars += 3;
+      if(rxChars >= fullB64.length){ rxChars = fullB64.length; rxDone = true; }
+      renderRx();
+    }
+  }, 220);
+
+  /* ============ 旋钮拖动 ============ */
+  var dragging = false, startY = 0, startFreq = 0;
+  knob.addEventListener('pointerdown', function(e){
+    ensureAudio();
+    dragging = true; startY = e.clientY; startFreq = freq;
+    knob.setPointerCapture(e.pointerId);
+  });
+  knob.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dy = startY - e.clientY;
+    setFreq(startFreq + dy * 0.04);
+  });
+  function endDrag(){ dragging = false; }
+  knob.addEventListener('pointerup', endDrag);
+  knob.addEventListener('pointercancel', endDrag);
+
+  /* 点击刻度盘直接跳频 */
+  document.getElementById('dial').addEventListener('click', function(e){
+    ensureAudio();
+    var r = this.getBoundingClientRect();
+    var p = (e.clientX - r.left) / r.width;
+    setFreq(LO + p * (HI - LO));
+  });
+
+  setFreq(96.0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#000000">
+<title>RECOVERED // VOSS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{
+  background:#000;color:#b8c0d8;min-height:100vh;
+  font-family:'Courier New',monospace;letter-spacing:.05em;
+}
+#scan{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.28;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(160,175,255,.04) 3px,transparent 4px);}
+.corner{position:fixed;z-index:3;font-size:10px;letter-spacing:.22em;color:rgba(130,135,150,.4);pointer-events:none;user-select:none;}
+.corner.tl{top:14px;left:16px;}
+.corner.br{bottom:14px;right:16px;}
+
+main{position:relative;z-index:4;max-width:600px;margin:0 auto;padding:14vh 22px 12vh;}
+
+/* 锁屏 */
+#lock{text-align:center;}
+#lock .tag{font-size:11px;letter-spacing:.4em;color:#6a7288;margin-bottom:2.4rem;}
+#lock .big{font-size:clamp(1.4rem,6vw,2rem);color:#eef0ff;letter-spacing:.3em;margin-bottom:.6rem;}
+#lock .sub{font-size:12px;color:#565c6e;letter-spacing:.2em;margin-bottom:2.6rem;}
+#lock input{
+  width:min(70vw,240px);background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.18);
+  padding:.7rem .2rem;color:#e8ecff;font-family:inherit;font-size:18px;letter-spacing:.5em;text-align:center;outline:none;caret-color:#8fa0e0;
+}
+#lock button{
+  display:block;margin:1.8rem auto 0;padding:12px 30px;background:transparent;cursor:pointer;
+  border:1px solid rgba(160,175,255,.35);color:#c6d0f4;font-family:inherit;font-size:12px;letter-spacing:.4em;transition:all .3s;
+}
+#lock button:hover{background:rgba(160,175,255,.1);color:#fff;}
+#lock .err{min-height:1.6em;margin-top:1rem;font-size:11px;color:#d98a8a;letter-spacing:.15em;opacity:0;transition:opacity .3s;}
+#lock .err.show{opacity:1;}
+
+/* 内容 */
+#content{display:none;}
+#content .head{font-size:11px;letter-spacing:.34em;color:#8fa0e0;border-bottom:1px solid rgba(160,175,255,.15);padding-bottom:1rem;margin-bottom:2.2rem;}
+#content .head .warn{color:#d98a8a;}
+.entry{
+  opacity:0;transform:translateY(10px);transition:opacity .7s ease,transform .7s ease;
+  margin-bottom:2rem;border-left:2px solid rgba(160,175,255,.25);padding-left:16px;
+}
+.entry.in{opacity:1;transform:none;}
+.entry .date{font-size:11px;letter-spacing:.24em;color:#6a7288;margin-bottom:.4rem;}
+.entry .txt{font-size:14px;line-height:1.9;color:#c6cad8;}
+.entry .txt em{color:#e6c9a0;font-style:normal;}
+.entry .txt .void{color:#7a7f90;}
+
+#clue{margin-top:3rem;text-align:center;opacity:0;transition:opacity 1.4s ease;}
+#clue.in{opacity:1;}
+#clue .c{font-size:12px;color:#8fa0e0;letter-spacing:.2em;margin-bottom:1.6rem;}
+#clue a, #clue .back{
+  display:inline-block;margin:0 8px 10px;padding:11px 24px;text-decoration:none;color:#b8c2ee;
+  border:1px solid rgba(160,175,255,.3);font-size:11px;letter-spacing:.3em;transition:all .3s;
+}
+#clue a:hover{background:rgba(160,175,255,.12);color:#fff;}
+#clue .back{color:rgba(130,135,150,.7);border-color:rgba(255,255,255,.12);}
+</style>
+</head>
+<body>
+<div id="scan"></div>
+<div class="corner tl">已恢复设备 · VOSS / ATLAS</div>
+<div class="corner br">Meyrin · 仓库</div>
+
+<main>
+  <div id="lock">
+    <div class="tag">— 回收的工作站 —</div>
+    <div class="big">ACCESS</div>
+    <div class="sub">输入访问码以继续</div>
+    <input id="code" type="text" autocomplete="off" spellcheck="false" placeholder="····">
+    <button id="go">解 锁</button>
+    <div class="err" id="err">访问码错误 · 设备保持密封</div>
+  </div>
+
+  <div id="content">
+    <div class="head">DR. ELIAS VOSS · <span class="warn">已注销</span> · 个人日志片段</div>
+
+    <div class="entry"><div class="date">2017-08-14</div>
+      <div class="txt">在一批质子对撞数据里发现一个模式。能量对得上，动量对得上，但事件本身不存在。像有人擦掉了一行字，却忘了擦掉它的影子。我把它命名为<span class="void">本影窗口</span>（umbra window）。</div></div>
+
+    <div class="entry"><div class="date">2017-08-20</div>
+      <div class="txt">向上级报告。驳回。调离数据组。理由是“分析错误”。</div></div>
+
+    <div class="entry"><div class="date">2018-05-19</div>
+      <div class="txt">私自实验。校准激光打入真空室，用 <em>7.39 Hz</em> 的音频驱动磁场。真空室内壁上，我看到了<span class="void">影子</span>。不是反射，不是故障。</div></div>
+
+    <div class="entry"><div class="date">2019-02-03</div>
+      <div class="txt">被解雇。官方理由：“未经授权的实验”。</div></div>
+
+    <div class="entry"><div class="date">2019-06-11</div>
+      <div class="txt">在梅林郊外租了旧仓库，离 CERN 接待处 3.2 公里。继续。</div></div>
+
+    <div class="entry"><div class="date">2019-07-23</div>
+      <div class="txt">设备日志里开始出现名字。不是输入的。一个接一个，全是 <em>NULL</em>。第四次，是我自己的名字。</div></div>
+
+    <div class="entry"><div class="date">· · ·</div>
+      <div class="txt">门在记录靠近它的东西。<em>我把自己叫了进去。</em><br><br>
+      之后不会再有人读到这段。仓库里只剩设备、日志、一台还在响的收音机。</div></div>
+
+    <div class="entry"><div class="date">— 附注：关于门 —</div>
+      <div class="txt">物理学家管没有光的地方叫<span class="void">本影</span>。半影是光与暗的边界。<br>
+      门在本影里。我们在半影里。<br>
+      它不通向任何地点。它只做一件事：<em>记录</em>。任何靠近它的东西，名字会留在门外。真名留在半影，代号才能进来。</div></div>
+
+    <div id="clue">
+      <div class="c">收音机还在响 · 108.0 MHz<br>报纸复印件在抽屉里</div>
+      <a href="signal.html">→ 调频收音机</a>
+      <a href="press.html">→ 报纸</a>
+      <a class="back" href="门.html">回到终端</a>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  var code = document.getElementById('code');
+  var go = document.getElementById('go');
+  var err = document.getElementById('err');
+  var lock = document.getElementById('lock');
+  var content = document.getElementById('content');
+
+  function unlock(){
+    if(code.value.trim() === '2847'){
+      lock.style.display = 'none';
+      content.style.display = 'block';
+      var entries = content.querySelectorAll('.entry');
+      entries.forEach(function(el, i){
+        setTimeout(function(){ el.classList.add('in'); }, 200 + i * 650);
+      });
+      var last = entries.length * 650 + 1200;
+      setTimeout(function(){ document.getElementById('clue').classList.add('in'); }, last);
+    } else {
+      err.classList.remove('show'); void err.offsetWidth; err.classList.add('show');
+      setTimeout(function(){ err.classList.remove('show'); }, 2600);
+      code.value = ''; code.focus();
+    }
+  }
+  go.addEventListener('click', unlock);
+  code.addEventListener('keydown', function(e){ if(e.key === 'Enter') unlock(); });
+})();
+</script>
+</body>
+</html>

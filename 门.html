@@ -9,7 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
 <style>
 *{ margin:0; padding:0; box-sizing:border-box; }
-html,body{ height:100%; }
+html{ font-size:16px; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+html,body{ height:100%; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body{
   background:#000; color:#e9e7e4; font-family:'Cinzel',serif;
   display:flex; align-items:center; justify-content:center;
@@ -187,7 +188,7 @@ button.loading{
 <div class="edge" id="edge"></div>
 
 <div class="corner tl">UMBRA · GATE // NODE 07</div>
-<div class="corner br">47.3769° N · 8.5417° E</div>
+<div class="corner br">46.2330° N · 6.0556° E</div>
 
 <main id="main">
   <h1>UMBRA</h1>
@@ -410,12 +411,21 @@ button.loading{
       '频率：7.39 Hz',
       '振幅：1.02',
       '相位：不稳定',
-      '来源：47.3769 / 8.5417'
+      '来源：46.2330 / 6.0556 · CERN'
     ],
     'coordinates.txt': [
-      '47.3769° N',
-      '8.5417° E',
+      '46.2330° N',
+      '6.0556° E',
+      '1 Esplanade des Particules, Meyrin',
       '——它在那里等过。'
+    ],
+    'press.clip': [
+      '2019-08-12 · 日内瓦观察报 · 前研究员失踪',
+      '（复印件在抽屉里 · 输入 news 打开）'
+    ],
+    'memo.doc': [
+      'CERN 内部备忘录 · 2019-02-03',
+      '（复印件在抽屉里 · 输入 memo 打开）'
     ]
   };
   var OBSIDIAN_DECODED = false;
@@ -444,6 +454,7 @@ button.loading{
       { text: '' },
       { text: '> 身份确认：' + NAME, cls: 'blue' },
       { text: '> 档案编号：UMB-2847-X', cls: 'blue' },
+      { text: '> 项目负责人：Dr. E. Voss（已注销）', cls: 'warn' },
       { text: '> 时间戳：' + new Date().toISOString(), cls: 'dim' },
       { text: '' },
       { text: '你被记录在案。', cls: 'big' },
@@ -487,6 +498,11 @@ button.loading{
         { text: '  trace            追踪来源', cls: 'dim' },
         { text: '  go <lat> <lon>   前往坐标', cls: 'dim' },
         { text: '  key <num>        尝试钥匙（提示散在档案里）', cls: 'dim' },
+        { text: '  radio            调频 108.0 MHz', cls: 'dim' },
+        { text: '  voss             接入回收设备', cls: 'dim' },
+        { text: '  news             调取报纸复印件', cls: 'dim' },
+        { text: '  memo             调取内部备忘录', cls: 'dim' },
+        { text: '  ben              询问名字', cls: 'dim' },
         { text: '  clear            清除记录', cls: 'dim' }
       ]);
     } else if (main === 'whoami' || main === 'who'){
@@ -513,6 +529,8 @@ button.loading{
         { text: 'archive.log', cls: 'blue' },
         { text: 'signal.dat', cls: 'blue' },
         { text: 'coordinates.txt', cls: 'blue' },
+        { text: 'press.clip', cls: 'blue' },
+        { text: 'memo.doc', cls: 'blue' },
         { text: 'obsidian.enc   [加密]', cls: 'warn' }
       ]);
     } else if (main === 'cat'){
@@ -528,7 +546,7 @@ button.loading{
             { text: '  记录者：门', cls: 'blue' },
             { text: '  门的另一侧从未关闭。', cls: 'dim' },
             { text: '  它在等待一个名字。', cls: 'dim' },
-            { text: '  下一个接触点：47.3769° N, 8.5417° E', cls: 'warn' }
+            { text: '  下一个接触点：46.2330° N, 6.0556° E', cls: 'warn' }
           ]);
         } else {
           await typeLines([
@@ -561,9 +579,10 @@ button.loading{
           { text: '  记录者：门', cls: 'blue' },
           { text: '  门的另一侧从未关闭。', cls: 'dim' },
           { text: '  它在等待一个名字。', cls: 'dim' },
-          { text: '  下一个接触点：47.3769° N, 8.5417° E', cls: 'warn' },
+          { text: '  下一个接触点：46.2330° N, 6.0556° E', cls: 'warn' },
           { text: '' },
-          { text: '  门在别处。', cls: 'hint' }
+          { text: '  > 回收设备 · 访问码：2847', cls: 'hint' },
+          { text: '  > 输入 voss 打开工作站', cls: 'hint' }
         ]);
       } else {
         await typeLines([
@@ -592,14 +611,17 @@ button.loading{
         await typeLines([{ text: '  用法：go <lat> <lon>', cls: 'dim' }]);
       } else {
         var lat = parseFloat(nums[0]), lon = parseFloat(nums[1]);
-        if (Math.abs(lat - 47.3769) < 0.01 && Math.abs(lon - 8.5417) < 0.01){
+        if (Math.abs(lat - 46.2330) < 0.01 && Math.abs(lon - 6.0556) < 0.01){
           await typeLines([
             { text: '  你报出了坐标。', cls: 'blue' },
             { text: '  门微微震动了一下。', cls: 'dim' },
             { text: '  它认识那个地方。', cls: 'dim' },
             { text: '  但那里已经没有门了。', cls: 'dim' },
-            { text: '  ——只剩下一个名字，刻在石头上。', cls: 'warn' }
+            { text: '  ——只剩下一个名字，刻在石头上。', cls: 'warn' },
+            { text: '' },
+            { text: '  > 正在传送到现场……', cls: 'hint' }
           ]);
+          setTimeout(function(){ window.location.href = 'stone.html'; }, 2600);
         } else {
           await typeLines([
             { text: '  那里没有门。', cls: 'warn' }
@@ -621,7 +643,7 @@ button.loading{
           { text: '' },
           { text: '  档案 UMB-2847-X 已封存。', cls: 'dim' },
           { text: '  — 门在别处。', cls: 'dim' },
-          { text: '  47.3769° N, 8.5417° E', cls: 'warn' }
+          { text: '  46.2330° N, 6.0556° E', cls: 'warn' }
         ]);
       } else {
         await typeLines([
@@ -645,6 +667,37 @@ button.loading{
         { text: '  门没有回音。', cls: 'dim' },
         { text: '  但你感觉到有什么在点头。', cls: 'hint' }
       ]);
+    } else if (main === 'ben'){
+      await typeLines([
+        { text: '  这个名字不在档案里。', cls: 'warn' },
+        { text: '  但门用过它。', cls: 'dim' },
+        { text: '  你确定那是你的名字吗？', cls: 'big' }
+      ]);
+    } else if (main === 'voss'){
+      await typeLines([
+        { text: '  > 正在接入回收设备……', cls: 'hint' }
+      ]);
+      setTimeout(function(){ window.location.href = 'voss.html'; }, 2000);
+    } else if (main === 'radio'){
+      await typeLines([
+        { text: '  > 正在调频 108.0 MHz……', cls: 'hint' }
+      ]);
+      setTimeout(function(){ window.location.href = 'signal.html'; }, 2200);
+    } else if (main === 'news' || main === 'press' || main === 'paper'){
+      await typeLines([
+        { text: '  > 调取报纸复印件……', cls: 'hint' }
+      ]);
+      setTimeout(function(){ window.location.href = 'press.html'; }, 2000);
+    } else if (main === 'memo' || main === 'doc'){
+      await typeLines([
+        { text: '  > 调取内部备忘录……', cls: 'hint' }
+      ]);
+      setTimeout(function(){ window.location.href = 'memo.html'; }, 2000);
+    } else if (main === 'stone' || main === 'cern'){
+      await typeLines([
+        { text: '  > 正在传送到现场……', cls: 'hint' }
+      ]);
+      setTimeout(function(){ window.location.href = 'stone.html'; }, 2000);
     } else {
       await typeLines([{ text: '  门槛不回应这个。', cls: 'dim' }]);
     }

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CERN · 内部备忘录</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{
+  background:#100f0d;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:4vh 0;font-family:Georgia,'Songti SC','STSong','SimSun',serif;color:#26231f;
+}
+.doc{
+  width:min(94vw,560px);background:#f0ece1;padding:clamp(24px,5vw,44px);
+  box-shadow:0 18px 60px rgba(0,0,0,.7);position:relative;
+}
+.doc::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(0,0,0,.05));}
+.doc > *{position:relative;}
+
+.letterhead{text-align:center;border-bottom:2px solid #26231f;padding-bottom:10px;margin-bottom:18px;}
+.letterhead .org{font-size:1rem;letter-spacing:.28em;font-weight:700;}
+.letterhead .sub{font-size:.62rem;letter-spacing:.34em;color:#5a5448;margin-top:4px;}
+.letterhead .tag{display:inline-block;margin-top:10px;font-family:'Courier New',monospace;font-size:.6rem;letter-spacing:.3em;border:1px solid #26231f;padding:3px 10px;}
+
+h1{font-size:.9rem;letter-spacing:.2em;text-align:center;margin-bottom:18px;font-weight:400;}
+
+table{width:100%;font-size:.8rem;border-collapse:collapse;margin-bottom:16px;}
+table td{padding:4px 6px;vertical-align:top;border-bottom:1px dashed #bbb3a0;}
+table td.k{color:#6b6456;white-space:nowrap;width:5.5em;letter-spacing:.06em;}
+
+p{font-size:.82rem;line-height:1.85;margin-bottom:12px;text-align:justify;}
+.red{background:#17150f;color:#17150f;padding:0 .25em;border-radius:1px;user-select:none;}
+.red.part{background:#17150f;color:#17150f;}
+.note{font-size:.7rem;color:#6b6456;font-style:italic;margin-top:20px;border-top:1px solid #bbb3a0;padding-top:8px;}
+
+.back{margin-top:20px;text-align:right;}
+.back a{font-family:'Courier New',monospace;font-size:10px;letter-spacing:.3em;color:#6b6456;text-decoration:none;border-bottom:1px solid #bbb3a0;padding-bottom:2px;}
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="letterhead">
+    <div class="org">CERN</div>
+    <div class="sub">EUROPEAN ORGANIZATION FOR NUCLEAR RESEARCH</div>
+    <div class="tag">INTERNAL MEMORANDUM · 内部备忘录</div>
+  </div>
+
+  <h1>MÉMORANDUM INTERNE — 归档副本</h1>
+
+  <table>
+    <tr><td class="k">TO / 致</td><td>ATLAS 数据组全体</td></tr>
+    <tr><td class="k">FROM / 由</td><td>人力资源部 · <span class="red">████████</span></td></tr>
+    <tr><td class="k">DATE / 日期</td><td>2019-02-03</td></tr>
+    <tr><td class="k">SUBJECT</td><td>解除雇佣关系 — Dr. Elias Voss</td></tr>
+    <tr><td class="k">REF / 编号</td><td>HR-<span class="red">████</span>-2847</td></tr>
+  </table>
+
+  <p>本备忘录确认，Dr. Elias Voss（员工编号 <span class="red">28██</span>）与 CERN 的雇佣关系于 2019 年 2 月 3 日终止，即时生效。其访问权限、门禁卡及数据账号已于当日 <span class="red">██████</span> 全部撤销。</p>
+
+  <p>终止事由为「<span class="red">██████████</span> 的未经授权实验」。相关实验装置、记录与数据已按规程 <span class="red">████████</span>。任何人员不得就此事项与外部机构或媒体进行沟通。</p>
+
+  <p>该雇员自离职后，其在 Meyrin 附近租赁的私人仓储物业与本组织无任何关联。任何后续 <span class="red">████████</span> 不属于本组织责任范围。</p>
+
+  <p>本文件为内部资料，含保密信息。未经授权之复制、传播或披露将受到纪律处分。</p>
+
+  <div class="note">归档注记：副本 3 / 3 · 原件已于 2019-04-01 随 UMB-2847-X 一并封存。</div>
+
+  <div class="back"><a href="门.html">（复印件 · 回到终端）</a></div>
+</div>
+</body>
+</html>

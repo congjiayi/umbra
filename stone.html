@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#000000">
+<title>46.2330° N · 6.0556° E</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{
+  background:#050608;color:#8a8a86;min-height:100vh;
+  font-family:Georgia,'Songti SC','STSong','SimSun',serif;
+  display:flex;align-items:center;justify-content:center;
+}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(ellipse at 50% 58%,transparent 24%,rgba(0,0,0,.9) 100%);}
+.corner{position:fixed;z-index:3;font-family:'Courier New',monospace;font-size:10px;letter-spacing:.22em;color:rgba(130,135,150,.32);pointer-events:none;user-select:none;}
+.corner.tl{top:14px;left:16px;}
+.corner.br{bottom:14px;right:16px;}
+
+main{position:relative;z-index:4;text-align:center;width:min(88vw,520px);}
+.coord{font-family:'Courier New',monospace;font-size:10px;letter-spacing:.4em;color:#4a5060;margin-bottom:3.4rem;}
+
+.stone{
+  width:min(58vw,200px);height:min(58vw,200px);margin:0 auto 3.6rem;
+  background:radial-gradient(ellipse at 42% 30%,#272931,#101116 72%);
+  box-shadow:0 24px 70px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;align-items:center;justify-content:center;transform:rotate(1deg);
+}
+.stone span{
+  font-family:'Courier New',monospace;font-size:clamp(1.5rem,7vw,2.6rem);
+  letter-spacing:.26em;padding-left:.26em;color:#c9b48c;
+  text-shadow:0 0 16px rgba(201,180,140,.32);
+  transition:all 1.6s ease;max-width:78%;word-break:break-all;line-height:1.3;
+}
+
+.line{font-size:.82rem;color:#6a6a66;letter-spacing:.2em;line-height:2.4;opacity:0;transition:opacity 2.4s ease;}
+.line.in{opacity:1;}
+
+#carve{margin-top:3.4rem;opacity:0;transition:opacity 2.4s ease 2.6s;}
+#carve.in{opacity:1;}
+#carve input{
+  width:min(60vw,180px);background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.14);
+  padding:.5rem .1rem;color:#c9b48c;font-family:'Courier New',monospace;font-size:15px;letter-spacing:.4em;text-align:center;outline:none;caret-color:#c9b48c;
+}
+#carve input::placeholder{color:rgba(130,135,150,.35);}
+
+#after{display:none;margin-top:2.6rem;}
+#after p{opacity:0;transition:opacity 2.6s ease;font-size:.8rem;color:#8a8a86;letter-spacing:.24em;line-height:2.6;}
+#after p.in{opacity:1;}
+#after p.void{color:#4a5060;}
+
+#next{margin-top:3rem;display:none;opacity:0;transition:opacity 2s ease;}
+#next.in{opacity:1;display:block;}
+#next a{color:#6a7288;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.16);padding-bottom:3px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:.4em;transition:color .4s,border-color .4s;}
+#next a:hover{color:#c6d0f4;border-color:rgba(160,175,255,.5);}
+</style>
+</head>
+<body>
+<div id="vignette"></div>
+<div class="corner tl">1 Esplanade des Particules</div>
+<div class="corner br">Meyrin · CERN</div>
+
+<main>
+  <div class="coord">46.2330° N · 6.0556° E</div>
+  <div class="stone"><span id="stone">NOX</span></div>
+  <div class="line" id="line">——只剩下一个名字，刻在石头上。</div>
+
+  <div id="carve"><input id="name" type="text" autocomplete="off" spellcheck="false" placeholder="· · ·"></div>
+
+  <div id="after">
+    <p id="a1">石头没有回应。</p>
+    <p id="a2" class="void">它只是把这个名字，刻了下去。</p>
+  </div>
+
+  <div id="next"><a href="final.html">→</a></div>
+</main>
+
+<script>
+(function(){
+  setTimeout(function(){ document.getElementById('line').classList.add('in'); }, 1200);
+  setTimeout(function(){ document.getElementById('carve').classList.add('in'); }, 2600);
+
+  var name = document.getElementById('name');
+  var stone = document.getElementById('stone');
+
+  function done(){
+    var v = name.value.trim();
+    if(!v) return;
+    try { sessionStorage.setItem('umbra.name', v); } catch(e){}
+    stone.textContent = v;
+    document.getElementById('carve').style.opacity = '0';
+    document.getElementById('after').style.display = 'block';
+    setTimeout(function(){ document.getElementById('a1').classList.add('in'); }, 400);
+    setTimeout(function(){ document.getElementById('a2').classList.add('in'); }, 1800);
+    setTimeout(function(){ document.getElementById('next').classList.add('in'); }, 3600);
+  }
+  name.addEventListener('keydown', function(e){ if(e.key === 'Enter') done(); });
+  name.addEventListener('blur', done);
+})();
+</script>
+</body>
+</html>
