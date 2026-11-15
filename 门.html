@@ -188,7 +188,7 @@ button.loading{
 <div class="edge" id="edge"></div>
 
 <div class="corner tl">UMBRA · GATE // NODE 07</div>
-<div class="corner br">46.2330° N · 6.0556° E</div>
+<div class="corner br">██.████° N · █.████° E</div>
 
 <main id="main">
   <h1>UMBRA</h1>
@@ -411,13 +411,13 @@ button.loading{
       '频率：7.39 Hz',
       '振幅：1.02',
       '相位：不稳定',
-      '来源：46.2330 / 6.0556 · CERN'
+      '来源：██.██ / █.██ · CERN'
     ],
     'coordinates.txt': [
-      '46.2330° N',
-      '6.0556° E',
-      '1 Esplanade des Particules, Meyrin',
-      '——它在那里等过。'
+      '46.████° N',
+      '6.████° E',
+      '——坐标被擦掉了一半。',
+      '（去听仓库里那台收音机）'
     ],
     'press.clip': [
       '2019-08-12 · 日内瓦观察报 · 前研究员失踪',
@@ -546,7 +546,7 @@ button.loading{
             { text: '  记录者：门', cls: 'blue' },
             { text: '  门的另一侧从未关闭。', cls: 'dim' },
             { text: '  它在等待一个名字。', cls: 'dim' },
-            { text: '  下一个接触点：46.2330° N, 6.0556° E', cls: 'warn' }
+            { text: '  下一个接触点：██.████° N, █.████° E', cls: 'warn' }
           ]);
         } else {
           await typeLines([
@@ -579,7 +579,7 @@ button.loading{
           { text: '  记录者：门', cls: 'blue' },
           { text: '  门的另一侧从未关闭。', cls: 'dim' },
           { text: '  它在等待一个名字。', cls: 'dim' },
-          { text: '  下一个接触点：46.2330° N, 6.0556° E', cls: 'warn' },
+          { text: '  下一个接触点：██.████° N, █.████° E', cls: 'warn' },
           { text: '' },
           { text: '  > 回收设备 · 访问码：2847', cls: 'hint' },
           { text: '  > 输入 voss 打开工作站', cls: 'hint' }
@@ -611,7 +611,7 @@ button.loading{
         await typeLines([{ text: '  用法：go <lat> <lon>', cls: 'dim' }]);
       } else {
         var lat = parseFloat(nums[0]), lon = parseFloat(nums[1]);
-        if (Math.abs(lat - 46.2330) < 0.01 && Math.abs(lon - 6.0556) < 0.01){
+        if (Math.abs(lat - 46.2330) < 0.0005 && Math.abs(lon - 6.0556) < 0.0005){
           await typeLines([
             { text: '  你报出了坐标。', cls: 'blue' },
             { text: '  门微微震动了一下。', cls: 'dim' },
@@ -643,7 +643,7 @@ button.loading{
           { text: '' },
           { text: '  档案 UMB-2847-X 已封存。', cls: 'dim' },
           { text: '  — 门在别处。', cls: 'dim' },
-          { text: '  46.2330° N, 6.0556° E', cls: 'warn' }
+          { text: '  ██.████° N, █.████° E', cls: 'warn' }
         ]);
       } else {
         await typeLines([
@@ -693,11 +693,6 @@ button.loading{
         { text: '  > 调取内部备忘录……', cls: 'hint' }
       ]);
       setTimeout(function(){ window.location.href = 'memo.html'; }, 2000);
-    } else if (main === 'stone' || main === 'cern'){
-      await typeLines([
-        { text: '  > 正在传送到现场……', cls: 'hint' }
-      ]);
-      setTimeout(function(){ window.location.href = 'stone.html'; }, 2000);
     } else {
       await typeLines([{ text: '  门槛不回应这个。', cls: 'dim' }]);
     }
