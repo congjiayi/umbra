@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>· · ·</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{
+    width:100%;height:100%;background:#000;overflow:hidden;
+    cursor:default;-webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;
+  }
+  #scene{
+    position:fixed;inset:0;width:100%;height:100%;display:block;
+    image-rendering:pixelated;
+    image-rendering:-moz-crisp-edges;
+    image-rendering:crisp-edges;
+  }
+  #vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:2;
+    background:radial-gradient(ellipse at center,
+      rgba(0,0,0,0) 34%,
+      rgba(0,0,0,.42) 72%,
+      rgba(0,0,0,.80) 100%);
+  }
+  #scan{
+    position:fixed;inset:0;pointer-events:none;z-index:3;opacity:.40;
+    background:repeating-linear-gradient(to bottom,
+      rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+      rgba(0,0,0,.30) 3px, rgba(0,0,0,0) 4px);
+  }
+  #hint{
+    position:fixed;left:50%;bottom:8%;transform:translateX(-50%);
+    color:rgba(180,185,210,.24);
+    font-family:'Courier New',monospace;font-size:10px;
+    letter-spacing:.6em;z-index:4;pointer-events:none;
+    white-space:nowrap;transition:opacity 1.8s ease;
+  }
+  #hint.hide{opacity:0;}
+  #fallback{
+    position:fixed;inset:0;z-index:99;display:none;
+    align-items:center;justify-content:center;flex-direction:column;
+    background:#000;color:#b8c0d8;
+    font-family:'Courier New',monospace;font-size:13px;letter-spacing:.2em;
+    text-align:center;padding:24px;gap:22px;
+  }
+  #fallback.show{display:flex;}
+  #fallback a{color:#8fa0e0;text-decoration:none;border:1px solid rgba(160,175,255,.4);padding:12px 28px;letter-spacing:.4em;}
+  #fallback a:hover{background:rgba(160,175,255,.12);color:#fff;}
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="vignette"></div>
+<div id="scan"></div>
+<div id="hint">按 住 · 向 前</div>
+
+<div id="fallback">
+  <div>连 接 中 断</div>
+  <!-- 改动 1：初始链接也带 hash，file:// 下直接点也能触发 boot -->
+  <a href="门.html#from=corridor">手 动 接 入</a>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==========================================================
+     配置
+     ========================================================== */
+  var NEXT_PAGE  = '门.html';
+  var DOOR_Z     = 50.0;
+  var STOP_DIST  = 2.2;
+  var SPEED      = 3.0;
+  var SEG        = 2.0;
+  var MAXD       = 52;
+  var HALF_W     = 0.80;
+  var FLOOR_Y    = -0.85;
+  var CEIL_Y     =  1.10;
+
+  var TRIG_NOISE = 16;
+  var TRIG_SUB1  = 22;
+  var TRIG_SUB2  = 30;
+  var TRIG_SUB3  = 38;
+
+  var SCARE_DELAY = 1.6;
+
+  /* 接入序列时序 */
+  var BOOT_LINE_START = 0.05;
+  var BOOT_LINE_GAP   = 0.30;
+  var BOOT_SEQ_DURATION = BOOT_LINE_START + 6 * BOOT_LINE_GAP + 0.15; // 约 2.0s
+
+  /* ==========================================================
+     画布
+     ========================================================== */
+  var cv  = document.getElementById('scene');
+  var ctx = cv.getContext('2d', { alpha: false });
+
+  var SW = 256, SH = 144, FOCAL = 140;
+
+  function resize() {
+    var w = window.innerWidth || 320;
+    var h = window.innerHeight || 180;
+    var ar = w / h;
+    SH = 144;
+    SW = Math.round(SH * ar);
+    SW = Math.max(128, Math.min(420, SW));
+    cv.width  = SW;
+    cv.height = SH;
+    ctx.imageSmoothingEnabled = false;
+    FOCAL = SW * 0.55;
+  }
+  resize();
+  window.addEventListener('resize', resize, false);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(resize, 120);
+  }, false);
+
+  /* ==========================================================
+     状态
+     ========================================================== */
+  var camZ       = 0;
+  var arrived    = false;
+  var arriveTime = 0;
+  var pressed    = false;
+  var elapsed    = 0;
+  var lastTs     = 0;
+  var bob        = 0;
+
+  var sub1 = -1, sub2 = -1, sub3 = -1;
+
+  var stepTimer = 0;
+  var STEP_DIST = 1.15;
+  var stepSide  = 0;
+
+  var scareTriggered = false;
+  var scareTime      = 0;
+  var errCode        = 0;
+
+  /* 推门相关 */
+  var canPush    = false;
+  var pushed     = false;
+  var pushFlash  = false;
+  var lastBootLineShown = -1;
+
+  /* ==========================================================
+     哈希
+     ========================================================== */
+  function hash(n) {
+    var x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  /* ==========================================================
+     音频
+     ========================================================== */
+  var actx = null, A = null, audioReady = false;
+
+  function initAudio() {
+    if (audioReady) return;
+    audioReady = true;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try { actx = new Ctx(); } catch (e) { return; }
+    try { if (actx.state === 'suspended' && actx.resume) actx.resume(); } catch (e) {}
+
+    var master = actx.createGain();
+    master.gain.value = 0.55;
+    master.connect(actx.destination);
+
+    var delay = actx.createDelay(1.0);
+    delay.delayTime.value = 0.19;
+    var fb = actx.createGain();
+    fb.gain.value = 0.30;
+    delay.connect(fb);
+    fb.connect(delay);
+    delay.connect(master);
+
+    A = { master: master, delay: delay };
+
+    [43.6, 44.9, 87.2].forEach(function (f, i) {
+      try {
+        var o = actx.createOscillator();
+        var g = actx.createGain();
+        o.type = 'sine';
+        o.frequency.value = f;
+        g.gain.value = i === 2 ? 0.006 : 0.022;
+        o.connect(g);
+        g.connect(master);
+        o.start();
+      } catch (e) {}
+    });
+
+    scheduleDrips();
+  }
+
+  function playStep() {
+    if (!actx || !A) return;
+    try {
+      var t = actx.currentTime;
+      stepSide = 1 - stepSide;
+
+      var o  = actx.createOscillator();
+      var g  = actx.createGain();
+      var lp = actx.createBiquadFilter();
+
+      o.type = 'sine';
+      var baseF = stepSide ? 72 : 66;
+      o.frequency.setValueAtTime(baseF + Math.random() * 8, t);
+      o.frequency.exponentialRampToValueAtTime(30, t + 0.065);
+
+      lp.type = 'lowpass';
+      lp.frequency.value = 200;
+
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+
+      o.connect(lp);
+      lp.connect(g);
+      g.connect(A.master);
+      o.start(t);
+      o.stop(t + 0.17);
+
+      var bufSize = Math.floor(actx.sampleRate * 0.035);
+      var buf = actx.createBuffer(1, bufSize, actx.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 2.5);
+      }
+      var src = actx.createBufferSource();
+      src.buffer = buf;
+      var hp = actx.createBiquadFilter();
+      hp.type = 'bandpass';
+      hp.frequency.value = 900;
+      hp.Q.value = 1.2;
+      var ng = actx.createGain();
+      ng.gain.value = 0.045;
+      src.connect(hp);
+      hp.connect(ng);
+      ng.connect(A.master);
+      src.start(t);
+    } catch (e) {}
+  }
+
+  function drip() {
+    if (!actx || !A) return;
+    try {
+      var t  = actx.currentTime;
+      var o  = actx.createOscillator();
+      var g  = actx.createGain();
+      var f0 = 820 + Math.random() * 950;
+
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(120, f0 * 0.28), t + 0.075);
+
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.075 + Math.random() * 0.055, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+
+      o.connect(g);
+      g.connect(A.master);
+      g.connect(A.delay);
+      o.start(t);
+      o.stop(t + 0.4);
+    } catch (e) {}
+  }
+
+  function scheduleDrips() {
+    setTimeout(function () {
+      if (!document.hidden) drip();
+      scheduleDrips();
+    }, 900 + Math.random() * 2900);
+  }
+
+  function playScare() {
+    if (!actx || !A) return;
+    try {
+      var t = actx.currentTime;
+
+      var o1 = actx.createOscillator();
+      var g1 = actx.createGain();
+      o1.type = 'sine';
+      o1.frequency.setValueAtTime(200, t);
+      o1.frequency.exponentialRampToValueAtTime(18, t + 1.4);
+      g1.gain.setValueAtTime(0.0001, t);
+      g1.gain.exponentialRampToValueAtTime(0.62, t + 0.015);
+      g1.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+      o1.connect(g1);
+      g1.connect(A.master);
+      o1.start(t);
+      o1.stop(t + 2.3);
+
+      var bufSize = Math.floor(actx.sampleRate * 0.8);
+      var buf = actx.createBuffer(1, bufSize, actx.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+      var src = actx.createBufferSource();
+      src.buffer = buf;
+
+      var bp = actx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(1800, t);
+      bp.frequency.exponentialRampToValueAtTime(240, t + 0.8);
+      bp.Q.value = 0.9;
+
+      var bg = actx.createGain();
+      bg.gain.setValueAtTime(0.0001, t);
+      bg.gain.exponentialRampToValueAtTime(0.55, t + 0.01);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+
+      src.connect(bp);
+      bp.connect(bg);
+      bg.connect(A.master);
+      src.start(t);
+    } catch (e) {}
+  }
+
+  function playBeep(freq, dur, vol) {
+    if (!actx || !A) return;
+    try {
+      var t = actx.currentTime;
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = 'square';
+      o.frequency.value = freq || 880;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol || 0.03, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.04));
+      o.connect(g);
+      g.connect(A.master);
+      o.start(t);
+      o.stop(t + (dur || 0.04) + 0.01);
+    } catch (e) {}
+  }
+
+  ['keydown', 'pointerdown', 'touchstart', 'click', 'mousedown'].forEach(function (ev) {
+    window.addEventListener(ev, initAudio, { passive: true });
+  });
+
+  /* ==========================================================
+     输入（前进）
+     ========================================================== */
+  function down() { pressed = true; }
+  function up()   { pressed = false; }
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' ||
+        e.key === 'Enter' || e.keyCode === 32) {
+      down();
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  window.addEventListener('keyup', up, { passive: true });
+  window.addEventListener('blur', up, false);
+
+  window.addEventListener('touchstart', down, { passive: true });
+  window.addEventListener('touchend', up, { passive: true });
+  window.addEventListener('touchcancel', up, { passive: true });
+  window.addEventListener('mousedown', down, { passive: true });
+  window.addEventListener('mouseup', up, { passive: true });
+
+  /* ==========================================================
+     输入（推门）
+     ========================================================== */
+  function tryPush(e) {
+    if (!canPush || pushed) return;
+    if (e && e.repeat) return;
+    pushed = true;
+    canPush = false;
+    pushFlash = true;
+    playBeep(1280, 0.07, 0.05);
+    setTimeout(goNext, 220);
+  }
+  window.addEventListener('keydown', tryPush);
+  window.addEventListener('pointerdown', tryPush);
+  window.addEventListener('touchstart', tryPush, { passive: true });
+  window.addEventListener('mousedown', tryPush);
+
+  /* ==========================================================
+     投影 & 工具
+     ========================================================== */
+  function proj(x, y, z) {
+    var s = FOCAL / z;
+    return [SW * 0.5 + x * s, SH * 0.5 - y * s];
+  }
+
+  function quad(a, b, c, d, color) {
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.lineTo(c[0], c[1]);
+    ctx.lineTo(d[0], d[1]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  function shade(rgb, f) {
+    return 'rgb(' + Math.round(rgb[0] * f) + ',' +
+                    Math.round(rgb[1] * f) + ',' +
+                    Math.round(rgb[2] * f) + ')';
+  }
+
+  /* ==========================================================
+     走廊
+     ========================================================== */
+  function drawCorridor() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, SW, SH);
+
+    var base  = Math.floor(camZ / SEG) * SEG;
+    var count = Math.ceil(MAXD / SEG);
+    var by    = bob;
+
+    for (var i = count; i >= 0; i--) {
+      var zN = base + i * SEG - camZ;
+      var zF = zN + SEG;
+      if (zF <= 0.20) continue;
+      if (zN < 0.20) zN = 0.20;
+
+      var zMid = (zN + zF) * 0.5;
+      var fog = Math.exp(-zMid * 0.055);
+      if (fog < 0.015) continue;
+
+      var nLf = proj(-HALF_W, FLOOR_Y + by, zN);
+      var nRf = proj( HALF_W, FLOOR_Y + by, zN);
+      var fLf = proj(-HALF_W, FLOOR_Y + by, zF);
+      var fRf = proj( HALF_W, FLOOR_Y + by, zF);
+
+      var nLc = proj(-HALF_W, CEIL_Y + by, zN);
+      var nRc = proj( HALF_W, CEIL_Y + by, zN);
+      var fLc = proj(-HALF_W, CEIL_Y + by, zF);
+      var fRc = proj( HALF_W, CEIL_Y + by, zF);
+
+      var floorBase = (i % 2 === 0) ? [34, 35, 39] : [26, 27, 31];
+      var wallVar = 0.94 + hash(i * 3.7) * 0.12;
+      quad(nLf, nRf, fRf, fLf, shade(floorBase, fog));
+      quad(nLc, nRc, fRc, fLc, shade([15, 16, 19], fog));
+      quad(nLf, nLc, fLc, fLf, shade([50 * wallVar, 54 * wallVar, 61 * wallVar], fog));
+      quad(nRf, nRc, fRc, fRf, shade([37 * wallVar, 40 * wallVar, 45 * wallVar], fog));
+
+      if (fog > 0.10) {
+        var lTop = proj(-HALF_W, CEIL_Y + by, zN);
+        var lBot = proj(-HALF_W, FLOOR_Y + by, zN);
+        var rTop = proj( HALF_W, CEIL_Y + by, zN);
+        var rBot = proj( HALF_W, FLOOR_Y + by, zN);
+
+        ctx.strokeStyle = 'rgba(0,0,0,' + (0.65 * fog) + ')';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.moveTo(lTop[0], lTop[1]);
+        ctx.lineTo(lBot[0], lBot[1]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(rTop[0], rTop[1]);
+        ctx.lineTo(rBot[0], rBot[1]);
+        ctx.stroke();
+
+        var wlL1 = proj(-HALF_W, FLOOR_Y + 0.35 + by, zN);
+        var wlL2 = proj(-HALF_W, FLOOR_Y + 0.35 + by, zF);
+        var wlR1 = proj( HALF_W, FLOOR_Y + 0.35 + by, zN);
+        var wlR2 = proj( HALF_W, FLOOR_Y + 0.35 + by, zF);
+
+        ctx.strokeStyle = 'rgba(0,0,0,' + (0.45 * fog) + ')';
+        ctx.beginPath();
+        ctx.moveTo(wlL1[0], wlL1[1]);
+        ctx.lineTo(wlL2[0], wlL2[1]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(wlR1[0], wlR1[1]);
+        ctx.lineTo(wlR2[0], wlR2[1]);
+        ctx.stroke();
+
+        /* 混凝土面板横向接缝（Source 初代墙体） */
+        var pl1 = proj(-HALF_W, 0.12 + by, zN);
+        var pl2 = proj(-HALF_W, 0.12 + by, zF);
+        var pr1 = proj( HALF_W, 0.12 + by, zN);
+        var pr2 = proj( HALF_W, 0.12 + by, zF);
+        ctx.strokeStyle = 'rgba(0,0,0,' + (0.28 * fog) + ')';
+        ctx.beginPath(); ctx.moveTo(pl1[0], pl1[1]); ctx.lineTo(pl2[0], pl2[1]); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pr1[0], pr1[1]); ctx.lineTo(pr2[0], pr2[1]); ctx.stroke();
+      }
+
+      if (fog > 0.18 && i % 3 === 0) {
+        var r1 = hash(i * 7.1);
+        var r2 = hash(i * 7.2 + 1);
+        var wx = (r1 - 0.5) * HALF_W * 1.4;
+        var wz = zN + 0.3 + r2 * (SEG - 0.6);
+        var p  = proj(wx, FLOOR_Y + by + 0.005, wz);
+        var sz = Math.max(1, Math.round(fog * 3));
+        ctx.fillStyle = 'rgba(80, 95, 150, ' + (0.35 * fog) + ')';
+        ctx.fillRect(Math.round(p[0]), Math.round(p[1]), sz, 1);
+      }
+
+      if (i % 4 === 0 && fog > 0.08) {
+        var bL1 = proj(-HALF_W, CEIL_Y + by, zN);
+        var bR1 = proj( HALF_W, CEIL_Y + by, zN);
+        var bL2 = proj(-HALF_W, CEIL_Y - 0.06 + by, zN);
+        var bR2 = proj( HALF_W, CEIL_Y - 0.06 + by, zN);
+        quad(bL1, bR1, bR2, bL2, 'rgba(0,0,0,' + (0.72 * fog) + ')');
+      }
+    }
+  }
+
+  /* ==========================================================
+     光源与大气（Source 初代风格）
+     ========================================================== */
+  var LIGHT_GAP = 10.0;
+  var LIGHT_OFF = 3.5;
+
+  function drawLights() {
+    var first = Math.floor((camZ - LIGHT_OFF) / LIGHT_GAP) * LIGHT_GAP + LIGHT_OFF;
+    for (var Lz = first; Lz < camZ + MAXD; Lz += LIGHT_GAP) {
+      var dz = Lz - camZ;
+      if (dz < 0.5) continue;
+      var fog = Math.exp(-dz * 0.052);
+      if (fog < 0.03) continue;
+
+      var s = FOCAL / dz;
+      var cx = SW * 0.5;
+      var cy = SH * 0.5;
+      var by = bob;
+      var ceilY  = cy - (CEIL_Y + by) * s;
+      var floorY = cy - (FLOOR_Y + by) * s;
+
+      /* 灯管 */
+      var tw = Math.max(2, 0.30 * s);
+      var th = Math.max(1, 0.05 * s);
+      ctx.fillStyle = 'rgba(215,225,235,' + (0.75 * fog) + ')';
+      ctx.fillRect(Math.round(cx - tw / 2), Math.round(ceilY - th / 2), Math.round(tw), Math.round(th));
+
+      /* 顶部辉光 */
+      var gw = Math.max(12, 0.9 * s);
+      var g = ctx.createRadialGradient(cx, ceilY, 0, cx, ceilY, gw);
+      g.addColorStop(0, 'rgba(170,195,220,' + (0.28 * fog) + ')');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - gw, ceilY - gw, gw * 2, gw * 2);
+
+      /* 地面光池 */
+      var pw = Math.max(12, 1.15 * s);
+      var g2 = ctx.createRadialGradient(cx, floorY, 0, cx, floorY, pw);
+      g2.addColorStop(0, 'rgba(140,160,180,' + (0.15 * fog) + ')');
+      g2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(cx - pw, floorY - pw * 0.35, pw * 2, pw * 0.7);
+    }
+  }
+
+  function drawAtmosphere() {
+    var g = ctx.createLinearGradient(0, 0, 0, SH);
+    g.addColorStop(0.00, 'rgba(62,84,116,0.10)');
+    g.addColorStop(0.45, 'rgba(0,0,0,0)');
+    g.addColorStop(1.00, 'rgba(30,34,42,0.14)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, SW, SH);
+  }
+
+  /* ==========================================================
+     门
+     ========================================================== */
+  function drawDoor() {
+    var dz = DOOR_Z - camZ;
+    if (dz > 55) return;
+    if (dz < 0.5) dz = 0.5;
+
+    var vis = Math.min(1, Math.max(0, (55 - dz) / 48));
+    if (vis < 0.01) return;
+
+    var s  = FOCAL / dz;
+    var cx = SW * 0.5;
+    var cy = SH * 0.5;
+
+    var halfW = 0.82;
+    var topY  = 1.05;
+    var botY  = -0.92;
+
+    var L = Math.round(cx - halfW * s);
+    var R = Math.round(cx + halfW * s);
+    var T = Math.round(cy - topY  * s);
+    var B = Math.round(cy - botY  * s);
+    var W = R - L;
+    var H = B - T;
+    if (W < 2 || H < 2) return;
+
+    var crackX = Math.round(L + W * 0.5);
+
+    var gw = Math.max(16, W * 2.8);
+    var gr = ctx.createRadialGradient(crackX, cy, 0, crackX, cy, gw);
+    gr.addColorStop(0.00, 'rgba(165, 125, 75, ' + (0.30 * vis) + ')');
+    gr.addColorStop(0.45, 'rgba(95, 72, 50, '   + (0.10 * vis) + ')');
+    gr.addColorStop(1.00, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(crackX - gw, cy - gw, gw * 2, gw * 2);
+
+    var frameVis = Math.max(0, (1 - dz / 34));
+    if (frameVis > 0.01) {
+      ctx.fillStyle = 'rgba(20, 18, 26, ' + (frameVis * 0.96) + ')';
+      ctx.fillRect(L - 1, T - 1, W + 2, H + 2);
+    }
+
+    ctx.fillStyle = 'rgba(0, 0, 0, ' + vis + ')';
+    ctx.fillRect(L, T, W, H);
+
+    if (W > 4) {
+      var pulse  = 0.6 + 0.4 * Math.sin(elapsed * 1.7);
+      var crackA = 0.68 * vis * pulse;
+      var cw     = Math.max(1, Math.round(W * 0.018));
+
+      ctx.fillStyle = 'rgba(245, 200, 120, ' + crackA + ')';
+      ctx.fillRect(crackX, T + 1, cw, H - 2);
+
+      if (W > 10) {
+        ctx.fillStyle = 'rgba(245, 200, 120, ' + (crackA * 0.45) + ')';
+        ctx.fillRect(L + 2, B - 1, W - 4, 1);
+      }
+    }
+  }
+
+  /* ==========================================================
+     噪点
+     ========================================================== */
+  function noiseLevel() {
+    if (camZ < TRIG_NOISE) return 0;
+    if (camZ < TRIG_NOISE + 4) return Math.min(1, (camZ - TRIG_NOISE) / 4);
+    return Math.max(0.22, 1 - (camZ - TRIG_NOISE - 4) / 7);
+  }
+
+  function drawNoise(level) {
+    if (level <= 0.01) return;
+
+    var count = Math.floor(level * 480);
+    for (var i = 0; i < count; i++) {
+      var x = (Math.random() * SW) | 0;
+      var y = (Math.random() * SH) | 0;
+      var v = 85 + ((Math.random() * 135) | 0);
+      ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + Math.min(255, v + 20) + ',' +
+                      (0.14 + Math.random() * 0.52) + ')';
+      ctx.fillRect(x, y, 1, 1);
+    }
+
+    if (Math.random() < 0.32 * level) {
+      var gy = (Math.random() * SH) | 0;
+      ctx.fillStyle = 'rgba(170,180,240,' + (0.05 + Math.random() * 0.11) + ')';
+      ctx.fillRect(0, gy, SW, 1 + ((Math.random() * 4) | 0));
+    }
+  }
+
+  /* ==========================================================
+     文字
+     ========================================================== */
+  function textSize() {
+    return Math.max(8, Math.min(Math.round(SH * 0.072), Math.round(SW / 15)));
+  }
+
+  function drawCentered(text, y, size, alpha, color, spacing) {
+    if (alpha <= 0.01 || !text) return;
+    spacing = spacing === undefined ? 1 : spacing;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = color || '#e6e9ff';
+    ctx.font = 'bold ' + size + 'px "Courier New","Songti SC","STSong","SimSun",monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign    = 'left';
+
+    var i, w, widths = [], total = 0;
+    for (i = 0; i < text.length; i++) {
+      w = ctx.measureText(text.charAt(i)).width;
+      widths.push(w);
+      total += w + (i < text.length - 1 ? spacing : 0);
+    }
+
+    var x = SW * 0.5 - total * 0.5;
+    for (i = 0; i < text.length; i++) {
+      ctx.fillText(text.charAt(i), Math.round(x), Math.round(y));
+      x += widths[i] + spacing;
+    }
+    ctx.restore();
+  }
+
+  function drawTermLine(text, x, y, size, alpha, color) {
+    if (alpha <= 0.01 || !text) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = color || '#b8c0d8';
+    ctx.font = 'bold ' + size + 'px "Courier New","Songti SC","STSong","SimSun",monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign    = 'left';
+    ctx.fillText(text, Math.round(x), Math.round(y));
+    ctx.restore();
+  }
+
+  function fadeInOut(t, a, b, fade) {
+    if (t < a || t > b) return 0;
+    var fi = Math.min(1, (t - a) / fade);
+    var fo = Math.min(1, (b - t) / fade);
+    return Math.max(0, Math.min(fi, fo));
+  }
+
+  /* ==========================================================
+     字幕
+     ========================================================== */
+  function drawSubtitles() {
+    var size = textSize();
+    var now  = elapsed;
+
+    if (sub1 >= 0 && !scareTriggered) {
+      var a1 = fadeInOut(now, sub1, sub1 + 2.8, 0.8);
+      if (a1 > 0.01) drawCentered('本？是你吗', SH * 0.46, size, a1, '#e8ecff', 2);
+    }
+
+    if (sub2 >= 0 && !scareTriggered) {
+      var a2 = fadeInOut(now, sub2, sub2 + 3.4, 0.8);
+      if (a2 > 0.01) {
+        drawCentered('你终于来到这了，', SH * 0.40, size, a2, '#dfe4ff', 1.5);
+        drawCentered('门等了你很久。',   SH * 0.52, size, a2, '#dfe4ff', 1.5);
+      }
+    }
+
+    if (sub3 >= 0 && !scareTriggered) {
+      var a3 = fadeInOut(now, sub3, sub3 + 3.6, 0.8);
+      if (a3 > 0.01) {
+        drawCentered('门在等你，NOX在等你。', SH * 0.40, size, a3, '#ffffff', 1.2);
+        drawCentered('别忘了，FOR FREEDOM！', SH * 0.54, size, a3, '#ffd6a0', 1.2);
+      }
+    }
+  }
+
+  /* ==========================================================
+     惊吓 → 接入序列
+     ========================================================== */
+  function triggerScare() {
+    if (scareTriggered) return;
+    scareTriggered = true;
+    scareTime = elapsed;
+    errCode = 1000 + Math.floor(Math.random() * 9000);
+    lastBootLineShown = -1;
+    playScare();
+  }
+
+  var BOOT_LINES = [
+    { text: '> [ERROR] UMB-ERR-0000 · 信号断裂', cls: 'warn' },
+    { text: '> 重连 1/3 …',                     cls: 'dim'  },
+    { text: '> 重连 2/3 …',                     cls: 'dim'  },
+    { text: '> 重连 3/3 … OK',                  cls: 'ok'   },
+    { text: '> 捕获 NODE 07 · 身份：本',        cls: 'blue' },
+    { text: '> 门 仍 在',                       cls: 'big'  }
+  ];
+  var BOOT_COLORS = {
+    warn: '#ff7070',
+    dim:  '#6a7288',
+    ok:   '#8fd9a8',
+    blue: '#8fa0e0',
+    big:  '#eef0ff'
+  };
+
+  function drawBootSequence(t) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, SW, SH);
+
+    if (Math.random() < 0.5) {
+      for (var k = 0; k < 18; k++) {
+        var v = 40 + ((Math.random() * 60) | 0);
+        ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 20) + ',0.25)';
+        ctx.fillRect((Math.random() * SW) | 0, (Math.random() * SH) | 0, 1, 1);
+      }
+    }
+
+    var size  = Math.max(7, Math.round(SH * 0.062));
+    var lineH = size * 1.6;
+    var startX = SW * 0.10;
+    var startY = SH * 0.22;
+
+    var shown = 0;
+
+    for (var i = 0; i < BOOT_LINES.length; i++) {
+      var lineStart = BOOT_LINE_START + i * BOOT_LINE_GAP;
+      if (t < lineStart) break;
+
+      var line = BOOT_LINES[i];
+      var txt  = line.text;
+      if (i === 0) txt = txt.replace('0000', String(errCode));
+
+      var lineT = t - lineStart;
+      var chars = Math.min(txt.length, Math.floor(lineT / 0.018));
+      var alpha = Math.min(1, lineT / 0.08);
+
+      drawTermLine(txt.substr(0, chars),
+                   startX, startY + i * lineH,
+                   size, alpha, BOOT_COLORS[line.cls]);
+
+      shown = i + 1;
+    }
+
+    if (shown > lastBootLineShown) {
+      lastBootLineShown = shown;
+      playBeep(620 + shown * 45, 0.035, 0.025);
+    }
+
+    var hintStart = BOOT_LINE_START + BOOT_LINES.length * BOOT_LINE_GAP + 0.10;
+    if (t > hintStart) {
+      var hintText = '> 正在重新接入……';
+      var hintY = startY + BOOT_LINES.length * lineH + lineH * 0.8;
+      var blink = 0.45 + 0.55 * Math.abs(Math.sin(elapsed * 3.4));
+
+      drawTermLine(hintText, startX, hintY, size, blink, '#e8ecff');
+
+      ctx.save();
+      ctx.font = 'bold ' + size + 'px "Courier New","Songti SC","SimSun",monospace';
+      var tw = ctx.measureText(hintText).width;
+      ctx.restore();
+
+      if (Math.sin(elapsed * 6) > 0) {
+        ctx.fillStyle = 'rgba(143,160,224,0.9)';
+        ctx.fillRect(Math.round(startX + tw + 5),
+                     Math.round(hintY - size * 0.5),
+                     Math.max(2, Math.round(size * 0.55)),
+                     Math.round(size));
+      }
+    }
+  }
+
+  function drawScare() {
+    if (!scareTriggered) return;
+    var t = elapsed - scareTime;
+
+    if (t < 0.08) {
+      ctx.fillStyle = 'rgba(255,255,255,' + (1 - t / 0.08) + ')';
+      ctx.fillRect(0, 0, SW, SH);
+    } else if (t < 0.16) {
+      ctx.fillStyle = 'rgba(255, 20, 20, 0.85)';
+      ctx.fillRect(0, 0, SW, SH);
+      for (var i = 0; i < 20; i++) {
+        var yy = (Math.random() * SH) | 0;
+        ctx.fillStyle = 'rgba(0,0,0,' + (Math.random() * 0.6) + ')';
+        ctx.fillRect(0, yy, SW, 1 + ((Math.random() * 3) | 0));
+      }
+    } else if (t < 0.30) {
+      var ba = (t - 0.16) / 0.14;
+      ctx.fillStyle = 'rgba(0,0,0,' + ba + ')';
+      ctx.fillRect(0, 0, SW, SH);
+    } else {
+      drawBootSequence(t - 0.30);
+    }
+  }
+
+  /* ==========================================================
+     更新
+     ========================================================== */
+  function update(dt) {
+    if (!arrived && !scareTriggered) {
+      if (pressed) {
+        camZ += SPEED * dt;
+
+        if (camZ >= DOOR_Z - STOP_DIST) {
+          camZ = DOOR_Z - STOP_DIST;
+          arrived = true;
+          arriveTime = elapsed;
+        }
+
+        stepTimer += SPEED * dt;
+        while (stepTimer >= STEP_DIST) {
+          stepTimer -= STEP_DIST;
+          playStep();
+        }
+      }
+    }
+
+    if (!arrived) {
+      bob = pressed ? Math.sin(elapsed * 9.0) * 0.022 : Math.sin(elapsed * 2.0) * 0.006;
+    } else {
+      bob *= 0.90;
+    }
+
+    if (camZ >= TRIG_SUB1 && sub1 < 0) sub1 = elapsed;
+    if (camZ >= TRIG_SUB2 && sub2 < 0) sub2 = elapsed;
+    if (camZ >= TRIG_SUB3 && sub3 < 0) sub3 = elapsed;
+
+    if (arrived && sub3 < 0) sub3 = elapsed;
+
+    if (arrived && !scareTriggered) {
+      if (elapsed - arriveTime > SCARE_DELAY) triggerScare();
+    }
+
+    if (scareTriggered && !canPush && !pushed) {
+      if (elapsed - scareTime > 0.30 + BOOT_SEQ_DURATION) {
+        canPush = true;
+        /* 流程走完后自动跳转到门，无需手动接入 */
+        setTimeout(function () {
+          if (!pushed) tryPush();
+        }, 1500);
+      }
+    }
+
+    if (elapsed > 4.0) {
+      var h = document.getElementById('hint');
+      if (h && !h.classList.contains('hide')) h.classList.add('hide');
+    }
+  }
+
+  /* ==========================================================
+     渲染
+     ========================================================== */
+  function render() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, SW, SH);
+
+    if (!scareTriggered) {
+      drawCorridor();
+      drawLights();
+      drawDoor();
+      drawAtmosphere();
+      drawNoise(noiseLevel());
+      drawSubtitles();
+    } else {
+      drawScare();
+    }
+
+    if (pushFlash) {
+      ctx.fillStyle = 'rgba(225,232,255,0.55)';
+      ctx.fillRect(0, 0, SW, SH);
+    }
+  }
+
+  /* ==========================================================
+     主循环
+     ========================================================== */
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (dt > 0.1) dt = 0.1;
+    if (dt < 0) dt = 0;
+
+    elapsed += dt;
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ==========================================================
+     跳转：hash 参数（file:// 下唯一可靠）
+     ========================================================== */
+  function goNext() {
+    var fallback = document.getElementById('fallback');
+
+    /* 改动 2：用 hash 代替 query，Chrome file:// 下不会被当成文件名 */
+    var target = encodeURI(NEXT_PAGE) + '#from=corridor';
+
+    /* sessionStorage 在 http 下是备用，file:// 下可能被拒 */
+    try { sessionStorage.setItem('umbra.arrived', '1'); } catch (e) {}
+
+    var t = setTimeout(function () {
+      if (fallback) {
+        fallback.classList.add('show');
+        var a = fallback.querySelector('a');
+        if (a) a.setAttribute('href', target);
+      }
+    }, 3000);
+
+    try {
+      window.location.assign(target);
+    } catch (e) {
+      try { window.location.href = target; }
+      catch (e2) { clearTimeout(t); if (fallback) fallback.classList.add('show'); }
+    }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) lastTs = 0;
+  }, false);
+
+})();
+</script>
+</body>
+</html>

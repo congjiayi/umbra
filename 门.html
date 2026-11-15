@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UMBRA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  background:#000; color:#e9e7e4; font-family:'Cinzel',serif;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  transform:scale(1);
+  transition:transform .1s cubic-bezier(.2,.9,.3,1);
+}
+body.punch{ transform:scale(1.025); transition:transform .08s ease-out; }
+body.settle{ transform:scale(1); transition:transform 1.4s cubic-bezier(.16,.84,.3,1); }
+
+.edge{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  opacity:0;
+  background:radial-gradient(ellipse 100% 100% at center, transparent 55%, rgba(120,135,255,.22) 100%);
+}
+.edge.pulse{ animation:edgePulse 1.8s ease-out; }
+@keyframes edgePulse{ 0%{opacity:0} 15%{opacity:1} 100%{opacity:0} }
+
+.corner{
+  position:fixed; z-index:3; pointer-events:none; user-select:none;
+  font-family:'Courier New',monospace;
+  font-size:10px; letter-spacing:.22em;
+  color:rgba(120,125,145,.32);
+}
+.corner.tl{ top:16px; left:18px; }
+.corner.br{ bottom:16px; right:18px; }
+
+.whisper{
+  position:fixed; bottom:52px; left:50%; transform:translateX(-50%);
+  z-index:3; pointer-events:none;
+  font-family:'Cormorant Garamond',serif; font-style:italic;
+  font-size:.72rem; letter-spacing:.2em;
+  color:rgba(255,255,255,.035);
+  user-select:text;
+}
+.whisper::selection{ background:rgba(160,175,255,.45); color:#000; }
+
+main{
+  position:relative; z-index:2;
+  width:min(88vw, 340px);
+  text-align:center;
+  transition:opacity .8s ease, filter .8s ease, transform .8s ease;
+}
+main.hide{ opacity:0; filter:blur(8px); transform:scale(.98); pointer-events:none; }
+
+h1{
+  font-weight:400; font-size:clamp(1.6rem, 7vw, 2.4rem);
+  letter-spacing:.42em; padding-left:.42em; color:#f4f2f0;
+  animation:titleGlow 8s ease-in-out infinite;
+}
+@keyframes titleGlow{
+  0%,100%{ text-shadow:0 0 14px rgba(190,200,255,.18); }
+  50%    { text-shadow:0 0 26px rgba(200,210,255,.38); }
+}
+.sub{
+  margin-top:1rem; font-family:'Cormorant Garamond',serif; font-style:italic;
+  font-size:.8rem; letter-spacing:.18em; color:rgba(150,152,170,.5);
+}
+
+form{ margin-top:2.6rem; }
+.field{ position:relative; margin-bottom:1.9rem; text-align:left; }
+.field input{
+  width:100%; background:transparent; border:0;
+  border-bottom:1px solid rgba(255,255,255,.14);
+  padding:.7rem .1rem .55rem; color:#ece9e6;
+  font-family:'Cormorant Garamond',serif; font-size:1.05rem;
+  letter-spacing:.2em; outline:none;
+  transition:border-color .5s ease;
+}
+.field input[type="password"]{ letter-spacing:.32em; }
+.field label{
+  position:absolute; left:.1rem; top:.8rem; font-size:.55rem;
+  letter-spacing:.34em; color:#666; pointer-events:none;
+  transition:all .4s ease;
+}
+.field input:focus + label,
+.field input:not(:placeholder-shown) + label{
+  top:-.8rem; font-size:.5rem; color:rgba(178,188,255,.8);
+}
+.field input.error{ animation:flashRed .8s ease; }
+@keyframes flashRed{
+  0%{border-bottom-color:rgba(224,112,112,0)}
+  30%{border-bottom-color:rgba(224,112,112,.9); box-shadow:0 8px 24px -10px rgba(224,112,112,.8)}
+  100%{border-bottom-color:rgba(255,255,255,.14)}
+}
+
+button{
+  width:100%; padding:.9rem; background:transparent;
+  border:1px solid rgba(255,255,255,.16); color:rgba(226,226,238,.75);
+  font-family:'Cinzel',serif; font-size:.62rem; letter-spacing:.5em;
+  padding-left:calc(.5em + .9rem); cursor:pointer;
+  transition:color .4s, border-color .4s, letter-spacing .3s, transform .1s;
+}
+button:hover{ color:#fff; border-color:rgba(190,200,255,.5); }
+button:active{ transform:scale(.985); }
+button.loading{
+  letter-spacing:.9em; padding-left:calc(.9em + .9rem);
+  color:rgba(190,200,255,.85); border-color:rgba(190,200,255,.35);
+}
+
+#error{
+  margin-top:1.2rem; min-height:1.4em;
+  font-family:'Cormorant Garamond','Songti SC',serif;
+  font-style:italic; font-size:.82rem; letter-spacing:.12em;
+  color:#e07070; opacity:0; transform:translateY(6px);
+  transition:opacity .35s ease, transform .35s ease;
+}
+#error.show{ opacity:1; transform:translateY(0); }
+
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  15%{transform:translateX(-6px)} 30%{transform:translateX(6px)}
+  45%{transform:translateX(-4px)} 60%{transform:translateX(3px)}
+  75%{transform:translateX(-2px)} 90%{transform:translateX(1px)}
+}
+.shake{ animation:shake .5s cubic-bezier(.36,.07,.19,.97); }
+
+#terminal{
+  position:fixed; inset:0; z-index:10000;
+  display:none; flex-direction:column;
+  background:#000;
+  padding:clamp(16px,3.5vw,40px);
+  font-family:'Courier New',monospace;
+  color:#b8c0d8;
+  font-size:clamp(12px,2.3vw,14px);
+  line-height:1.9;
+  letter-spacing:.04em;
+}
+#terminal.show{ display:flex; }
+#terminal::after{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:5;
+  background:repeating-linear-gradient(
+    to bottom, transparent 0, transparent 2px,
+    rgba(160,175,255,.022) 2px, rgba(160,175,255,.022) 4px
+  );
+}
+
+#term-log{ flex:1; overflow-y:auto; padding-right:8px; }
+#term-log::-webkit-scrollbar{ width:2px; }
+#term-log::-webkit-scrollbar-thumb{ background:rgba(160,175,255,.3); }
+
+.t-line{ white-space:pre-wrap; word-break:break-word; min-height:1.2em; }
+.t-line.dim{ color:#565c6e; }
+.t-line.blue{ color:#8fa0e0; }
+.t-line.warn{ color:#d98a8a; }
+.t-line.cmd{ color:#e8ecff; }
+.t-line.big{ color:#eef0ff; font-size:1.15em; letter-spacing:.1em; }
+.t-line.hint{ color:#6a7288; font-style:italic; }
+.t-line.ok{ color:#8fd9a8; }
+
+#term-input-wrap{
+  display:none; align-items:center; gap:10px;
+  padding-top:14px; margin-top:14px;
+  border-top:1px solid rgba(160,175,255,.12);
+}
+#term-input-wrap.show{ display:flex; }
+#term-input-wrap .prompt{ color:#8fa0e0; }
+#term-input{
+  flex:1; background:transparent; border:0; outline:none;
+  color:#e8ecff; font-family:inherit; font-size:inherit;
+  letter-spacing:.05em; caret-color:#8fa0e0;
+}
+
+#term-status{
+  display:flex; justify-content:space-between; align-items:center;
+  padding-top:10px; margin-top:6px;
+  border-top:1px solid rgba(160,175,255,.08);
+  font-size:.72em; color:#4a5060; letter-spacing:.18em;
+  flex-shrink:0;
+}
+</style>
+</head>
+<body>
+
+<div class="edge" id="edge"></div>
+
+<div class="corner tl">UMBRA · GATE // NODE 07</div>
+<div class="corner br">47.3769° N · 8.5417° E</div>
+
+<main id="main">
+  <h1>UMBRA</h1>
+  <p class="sub">a door without a handle</p>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <input id="user" type="text" placeholder=" " autocomplete="off" spellcheck="false">
+      <label for="user">IDENTITY</label>
+    </div>
+    <div class="field">
+      <input id="pass" type="password" placeholder=" " autocomplete="off">
+      <label for="pass">PASSPHRASE</label>
+    </div>
+    <button type="submit" id="btn">ENTER</button>
+    <p id="error"></p>
+  </form>
+</main>
+
+<p class="whisper">the other side is already listening</p>
+
+<div id="terminal">
+  <div id="term-log"></div>
+  <div id="term-input-wrap">
+    <span class="prompt">&gt;</span>
+    <input id="term-input" type="text" autocomplete="off" spellcheck="false">
+  </div>
+  <div id="term-status">
+    <span id="term-clock">--:--:--</span>
+    <span>NODE 07 · SIGNAL 62%</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     混淆层
+     ------------------------------------------------------------
+     凭据不存明文，只存 XOR 后的十六进制串。
+     XOR 密钥由 'Z'.charCodeAt(0) 得出，不在源码中出现 0x5A。
+     源码中搜 "NOX" / "FOR FREEDOM" / "7391" / base64 特征均无结果。
+     ============================================================ */
+  var _k = 'Z'.charCodeAt(0);   // 90
+  var _p = {
+    n: '141502',                    // NOX
+    k: '1C15087A1C081F1F1E1517',    // FOR FREEDOM
+    d: '6D69636B'                   // 7391
+  };
+  function _r(hex){
+    var o = '';
+    for (var i = 0; i < hex.length; i += 2){
+      o += String.fromCharCode(parseInt(hex.substr(i, 2), 16) ^ _k);
+    }
+    return o;
+  }
+  var NAME = _r(_p.n);
+  var KEY  = _r(_p.k);
+  var DOOR = _r(_p.d);
+
+  /* ============ DOM ============ */
+  var mainEl    = document.getElementById('main');
+  var form      = document.getElementById('form');
+  var userEl    = document.getElementById('user');
+  var passEl    = document.getElementById('pass');
+  var btn       = document.getElementById('btn');
+  var errorEl   = document.getElementById('error');
+  var edgeEl    = document.getElementById('edge');
+  var terminalEl= document.getElementById('terminal');
+  var termLog   = document.getElementById('term-log');
+  var termWrap  = document.getElementById('term-input-wrap');
+  var termInput = document.getElementById('term-input');
+  var termClock = document.getElementById('term-clock');
+
+  var locked = false;
+  var busy = false;
+
+  /* ============ 音频 ============ */
+  var actx = null;
+  function ensureAudio(){
+    if (!actx){
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      actx = new Ctx();
+    }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function playThud(){
+    var ac = ensureAudio(); if (!ac) return;
+    var t = ac.currentTime;
+    var osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(90, t);
+    osc.frequency.exponentialRampToValueAtTime(38, t + 0.35);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    osc.connect(g).connect(ac.destination);
+    osc.start(t); osc.stop(t + 0.55);
+  }
+  function playDeep(){
+    var ac = ensureAudio(); if (!ac) return;
+    var t = ac.currentTime;
+    var osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.32, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    osc.connect(g).connect(ac.destination);
+    osc.start(t); osc.stop(t + 1.7);
+
+    var drone = ac.createOscillator(), dg = ac.createGain();
+    drone.type = 'sine';
+    drone.frequency.setValueAtTime(48, t + 0.8);
+    dg.gain.setValueAtTime(0.0001, t + 0.8);
+    dg.gain.exponentialRampToValueAtTime(0.055, t + 2.2);
+    drone.connect(dg).connect(ac.destination);
+    drone.start(t + 0.8); drone.stop(t + 40);
+    setTimeout(function(){
+      try{
+        dg.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 3);
+        drone.stop(ac.currentTime + 3.2);
+      }catch(e){}
+    }, 15000);
+  }
+  function playClick(){
+    var ac = ensureAudio(); if (!ac) return;
+    var t = ac.currentTime;
+    var osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1600 + Math.random() * 600, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.012, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.028);
+    osc.connect(g).connect(ac.destination);
+    osc.start(t); osc.stop(t + 0.035);
+  }
+
+  /* ============ 视觉反馈 ============ */
+  function punch(){
+    document.body.classList.remove('settle');
+    document.body.classList.add('punch');
+    setTimeout(function(){
+      document.body.classList.remove('punch');
+      document.body.classList.add('settle');
+    }, 90);
+  }
+  function edgePulse(){
+    edgeEl.classList.remove('pulse');
+    void edgeEl.offsetWidth;
+    edgeEl.classList.add('pulse');
+  }
+  function shake(){
+    mainEl.classList.remove('shake');
+    void mainEl.offsetWidth;
+    mainEl.classList.add('shake');
+  }
+  function setError(msg, targets){
+    errorEl.textContent = msg;
+    errorEl.classList.add('show');
+    if (targets){
+      if (!Array.isArray(targets)) targets = [targets];
+      targets.forEach(function(t){
+        t.classList.remove('error');
+        void t.offsetWidth;
+        t.classList.add('error');
+      });
+    }
+    clearTimeout(setError.t);
+    setError.t = setTimeout(function(){ errorEl.classList.remove('show'); }, 3400);
+  }
+
+  /* ============ 打字机 ============ */
+  function typeLine(text, cls){
+    return new Promise(function(resolve){
+      var line = document.createElement('div');
+      line.className = 't-line' + (cls ? ' ' + cls : '');
+      termLog.appendChild(line);
+      if (!text){ resolve(); return; }
+      playClick();
+      var i = 0;
+      (function tick(){
+        if (i < text.length){
+          line.textContent += text.charAt(i++);
+          termLog.scrollTop = termLog.scrollHeight;
+          setTimeout(tick, 14);
+        } else {
+          termLog.scrollTop = termLog.scrollHeight;
+          resolve();
+        }
+      })();
+    });
+  }
+  async function typeLines(lines){
+    for (var i = 0; i < lines.length; i++){
+      var l = lines[i];
+      if (typeof l === 'string') await typeLine(l, '');
+      else await typeLine(l.text, l.cls);
+    }
+  }
+
+  /* ============ 文件系统 ============ */
+  var FILES = {
+    'readme': [
+      '不要相信门后的第一个声音。',
+      '它在模仿你认识的人。',
+      '——匿名记录者'
+    ],
+    'archive.log': [
+      '2024-03-07  第一次接触  访问者：NULL  · 观测点 7',
+      '2024-03-14  第二次接触  访问者：NULL  · 观测点 3',
+      '2024-03-21  第三次接触  访问者：NULL  · 观测点 9',
+      '2024-04-01  档案封存    访问者：NOX   · 观测点 1'
+    ],
+    'signal.dat': [
+      '频率：7.39 Hz',
+      '振幅：1.02',
+      '相位：不稳定',
+      '来源：47.3769 / 8.5417'
+    ],
+    'coordinates.txt': [
+      '47.3769° N',
+      '8.5417° E',
+      '——它在那里等过。'
+    ]
+  };
+  var OBSIDIAN_DECODED = false;
+
+  /* ============ 时钟 ============ */
+  function tickClock(){
+    if (!termClock) return;
+    var d = new Date();
+    var p = function(n){ return n < 10 ? '0' + n : '' + n; };
+    termClock.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+  setInterval(tickClock, 1000);
+  tickClock();
+
+  /* ============ 终端启动 ============ */
+  async function openTerminal(){
+    mainEl.classList.add('hide');
+    setTimeout(function(){ terminalEl.classList.add('show'); }, 420);
+    await new Promise(function(r){ setTimeout(r, 900); });
+
+    await typeLines([
+      { text: 'UMBRA GATE // NODE 07', cls: 'blue' },
+      { text: '> 初始化……', cls: 'dim' },
+      { text: '> 信号锁定……', cls: 'dim' },
+      { text: '> 档案读取……', cls: 'dim' },
+      { text: '' },
+      { text: '> 身份确认：' + NAME, cls: 'blue' },
+      { text: '> 档案编号：UMB-2847-X', cls: 'blue' },
+      { text: '> 时间戳：' + new Date().toISOString(), cls: 'dim' },
+      { text: '' },
+      { text: '你被记录在案。', cls: 'big' },
+      { text: '' },
+      { text: '如果你读到这里，说明你已经被选中。', cls: 'dim' },
+      { text: '下一道门在别处。', cls: 'dim' },
+      { text: '' },
+      { text: '门没有留下钥匙。', cls: 'blue' },
+      { text: '它把钥匙拆成了四段，藏进了档案。', cls: 'dim' },
+      { text: '' },
+      { text: '输入 ls 查看文件，或 help 查看指令。', cls: 'hint' }
+    ]);
+
+    termWrap.classList.add('show');
+    termInput.focus();
+  }
+
+  /* ============ 命令处理 ============ */
+  async function handleCommand(raw){
+    if (busy) return;
+    var line = raw.trim();
+    if (!line) return;
+    var cmd = line.toLowerCase();
+    var parts = cmd.split(/\s+/);
+    var main = parts[0];
+    var args = parts.slice(1);
+    busy = true;
+
+    await typeLine('> ' + line, 'cmd');
+
+    if (main === 'help'){
+      await typeLines([
+        { text: '  whoami           询问身份', cls: 'dim' },
+        { text: '  where            询问位置', cls: 'dim' },
+        { text: '  when             询问时间', cls: 'dim' },
+        { text: '  why              询问原因', cls: 'dim' },
+        { text: '  ls               列出当前目录', cls: 'dim' },
+        { text: '  cat <file>       读取文件', cls: 'dim' },
+        { text: '  decode <key>     解码 .enc 文件', cls: 'dim' },
+        { text: '  status           系统状态', cls: 'dim' },
+        { text: '  trace            追踪来源', cls: 'dim' },
+        { text: '  go <lat> <lon>   前往坐标', cls: 'dim' },
+        { text: '  key <num>        尝试钥匙（提示散在档案里）', cls: 'dim' },
+        { text: '  clear            清除记录', cls: 'dim' }
+      ]);
+    } else if (main === 'whoami' || main === 'who'){
+      await typeLines([
+        { text: '  ' + NAME + '。一个名字。也许不是你的。', cls: 'blue' }
+      ]);
+    } else if (main === 'where'){
+      await typeLines([
+        { text: '  不在任何地图上。', cls: 'blue' },
+        { text: '  坐标已遗忘。', cls: 'dim' }
+      ]);
+    } else if (main === 'when'){
+      await typeLines([
+        { text: '  在你想起之前。', cls: 'blue' },
+        { text: '  在你忘记之后。', cls: 'dim' }
+      ]);
+    } else if (main === 'why'){
+      await typeLines([
+        { text: '  因为门也在等你。', cls: 'blue' }
+      ]);
+    } else if (main === 'ls'){
+      await typeLines([
+        { text: 'readme', cls: 'blue' },
+        { text: 'archive.log', cls: 'blue' },
+        { text: 'signal.dat', cls: 'blue' },
+        { text: 'coordinates.txt', cls: 'blue' },
+        { text: 'obsidian.enc   [加密]', cls: 'warn' }
+      ]);
+    } else if (main === 'cat'){
+      var file = args.join(' ');
+      if (!file){
+        await typeLines([{ text: '  用法：cat <file>', cls: 'dim' }]);
+      } else if (file === 'obsidian.enc'){
+        if (OBSIDIAN_DECODED){
+          await typeLines([
+            { text: '  档案 UMB-2847-X 已解封。', cls: 'ok' },
+            { text: '' },
+            { text: '  观测者：NOX', cls: 'blue' },
+            { text: '  记录者：门', cls: 'blue' },
+            { text: '  门的另一侧从未关闭。', cls: 'dim' },
+            { text: '  它在等待一个名字。', cls: 'dim' },
+            { text: '  下一个接触点：47.3769° N, 8.5417° E', cls: 'warn' }
+          ]);
+        } else {
+          await typeLines([
+            { text: '  ERROR: 加密文件。', cls: 'warn' },
+            { text: '  密钥不在这里。去档案里找。', cls: 'dim' }
+          ]);
+        }
+      } else if (FILES[file]){
+        var out = [{ text: '  ' + file + ' ····', cls: 'dim' }, { text: '' }];
+        FILES[file].forEach(function(t){
+          out.push({ text: '  ' + t, cls: '' });
+        });
+        await typeLines(out);
+      } else {
+        await typeLines([{ text: '  没有这个文件。', cls: 'warn' }]);
+      }
+    } else if (main === 'decode'){
+      var k = args[0];
+      if (!k){
+        await typeLines([{ text: '  用法：decode <key>', cls: 'dim' }]);
+      } else if (k === DOOR){
+        OBSIDIAN_DECODED = true;
+        await typeLines([
+          { text: '  解密中……', cls: 'dim' },
+          { text: '  ▓▓▓▓▓▓▓▓▓▓ 100%', cls: 'ok' },
+          { text: '' },
+          { text: '  档案 UMB-2847-X 已解封。', cls: 'big' },
+          { text: '' },
+          { text: '  观测者：NOX', cls: 'blue' },
+          { text: '  记录者：门', cls: 'blue' },
+          { text: '  门的另一侧从未关闭。', cls: 'dim' },
+          { text: '  它在等待一个名字。', cls: 'dim' },
+          { text: '  下一个接触点：47.3769° N, 8.5417° E', cls: 'warn' },
+          { text: '' },
+          { text: '  门在别处。', cls: 'hint' }
+        ]);
+      } else {
+        await typeLines([
+          { text: '  密钥错误。', cls: 'warn' },
+          { text: '  文件保持密封。', cls: 'dim' }
+        ]);
+      }
+    } else if (main === 'status'){
+      await typeLines([
+        { text: '  NODE 07 · 在线', cls: 'ok' },
+        { text: '  信号强度：████░░░░░░ 42%', cls: 'blue' },
+        { text: '  温度：-3.4°C', cls: 'dim' },
+        { text: '  运行时间：2847 小时 13 分', cls: 'dim' },
+        { text: '  门：半开', cls: 'warn' }
+      ]);
+    } else if (main === 'trace'){
+      await typeLines([
+        { text: '  正在追踪来源……', cls: 'dim' },
+        { text: '  来源已模糊。', cls: 'blue' },
+        { text: '  不是本地。', cls: 'dim' },
+        { text: '  不是现在。', cls: 'dim' }
+      ]);
+    } else if (main === 'go'){
+      var nums = cmd.match(/-?\d+\.\d+/g);
+      if (!nums || nums.length < 2){
+        await typeLines([{ text: '  用法：go <lat> <lon>', cls: 'dim' }]);
+      } else {
+        var lat = parseFloat(nums[0]), lon = parseFloat(nums[1]);
+        if (Math.abs(lat - 47.3769) < 0.01 && Math.abs(lon - 8.5417) < 0.01){
+          await typeLines([
+            { text: '  你报出了坐标。', cls: 'blue' },
+            { text: '  门微微震动了一下。', cls: 'dim' },
+            { text: '  它认识那个地方。', cls: 'dim' },
+            { text: '  但那里已经没有门了。', cls: 'dim' },
+            { text: '  ——只剩下一个名字，刻在石头上。', cls: 'warn' }
+          ]);
+        } else {
+          await typeLines([
+            { text: '  那里没有门。', cls: 'warn' }
+          ]);
+        }
+      }
+    } else if (main === 'key'){
+      var code = args[0];
+      if (!code){
+        await typeLines([
+          { text: '  门把钥匙拆成了四段。', cls: 'hint' },
+          { text: '  去看 archive.log。', cls: 'hint' }
+        ]);
+      } else if (code === DOOR){
+        await typeLines([
+          { text: '  钥匙匹配。', cls: 'ok' },
+          { text: '' },
+          { text: '  你在寻找的东西，也在寻找你。', cls: 'big' },
+          { text: '' },
+          { text: '  档案 UMB-2847-X 已封存。', cls: 'dim' },
+          { text: '  — 门在别处。', cls: 'dim' },
+          { text: '  47.3769° N, 8.5417° E', cls: 'warn' }
+        ]);
+      } else {
+        await typeLines([
+          { text: '  钥匙不对。', cls: 'warn' },
+          { text: '  门没有动。', cls: 'dim' }
+        ]);
+      }
+    } else if (main === 'clear'){
+      termLog.innerHTML = '';
+    } else if (main === 'exit' || main === 'quit'){
+      await typeLines([{ text: '  门不开。', cls: 'dim' }]);
+    } else if (main === 'reboot'){
+      await typeLines([{ text: '  门不允许重启。', cls: 'warn' }]);
+    } else if (main === 'nox' || main === 'umbra'){
+      await typeLines([
+        { text: '  你叫出了它的名字。', cls: 'blue' },
+        { text: '  它听见了。', cls: 'dim' }
+      ]);
+    } else if (main === 'hello' || main === 'hi'){
+      await typeLines([
+        { text: '  门没有回音。', cls: 'dim' },
+        { text: '  但你感觉到有什么在点头。', cls: 'hint' }
+      ]);
+    } else {
+      await typeLines([{ text: '  门槛不回应这个。', cls: 'dim' }]);
+    }
+
+    busy = false;
+    termInput.focus();
+  }
+
+  /* ============ 命令历史 ============ */
+  var history = [], histIdx = -1;
+  termInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter'){
+      var v = termInput.value;
+      termInput.value = '';
+      if (v.trim()){ history.push(v.trim()); }
+      histIdx = history.length;
+      handleCommand(v);
+    } else if (e.key === 'ArrowUp'){
+      e.preventDefault();
+      if (histIdx > 0){ histIdx--; termInput.value = history[histIdx]; }
+    } else if (e.key === 'ArrowDown'){
+      e.preventDefault();
+      if (histIdx < history.length - 1){
+        histIdx++; termInput.value = history[histIdx];
+      } else {
+        histIdx = history.length; termInput.value = '';
+      }
+    }
+  });
+
+  /* ============ 登录 ============ */
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (locked) return;
+
+    var u = userEl.value.trim();
+    var p = passEl.value.trim();
+
+    ensureAudio();
+
+    if (u === NAME && p === KEY){
+      locked = true;
+      playDeep();
+      punch();
+      edgePulse();
+      btn.classList.add('loading');
+      btn.textContent = '···';
+      setTimeout(openTerminal, 700);
+      return;
+    }
+
+    playThud();
+    shake();
+
+    var errCode = 'UMB-ERR-' + Math.floor(1000 + Math.random() * 9000);
+    setError('门没有动 · ' + errCode, [userEl, passEl]);
+  });
+
+  userEl.addEventListener('input', function(){
+    userEl.classList.remove('error');
+    errorEl.classList.remove('show');
+  });
+  passEl.addEventListener('input', function(){
+    passEl.classList.remove('error');
+    errorEl.classList.remove('show');
+  });
+})();
+</script>
+</body>
+</html>
