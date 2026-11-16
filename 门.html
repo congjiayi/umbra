@@ -250,31 +250,77 @@ button.loading{
         var Ctx = window.AudioContext || window.webkitAudioContext;
         var ac = new Ctx();
         if (ac.state === 'suspended') ac.resume();
+        var DUR = 18;
         var master = ac.createGain();
         master.gain.setValueAtTime(0.0001, ac.currentTime);
-        master.gain.exponentialRampToValueAtTime(0.8, ac.currentTime + 16);
-        var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 240;
+        master.gain.exponentialRampToValueAtTime(0.85, ac.currentTime + DUR);
+
+        /* 次低频轰鸣（双振荡拍频） */
         var o1 = ac.createOscillator(); o1.type = 'sine';
-        o1.frequency.setValueAtTime(36, ac.currentTime);
-        o1.frequency.exponentialRampToValueAtTime(72, ac.currentTime + 16);
+        o1.frequency.setValueAtTime(34, ac.currentTime);
+        o1.frequency.exponentialRampToValueAtTime(60, ac.currentTime + DUR);
         var o2 = ac.createOscillator(); o2.type = 'sine';
-        o2.frequency.setValueAtTime(36.6, ac.currentTime);
-        o2.frequency.exponentialRampToValueAtTime(73, ac.currentTime + 16);
-        var o3 = ac.createOscillator(); o3.type = 'sine';
-        o3.frequency.setValueAtTime(160, ac.currentTime);
-        o3.frequency.exponentialRampToValueAtTime(900, ac.currentTime + 16);
+        o2.frequency.setValueAtTime(34.6, ac.currentTime);
+        o2.frequency.exponentialRampToValueAtTime(60.8, ac.currentTime + DUR);
+        o1.connect(master); o2.connect(master);
+
+        /* 攀升的高音（3 个八度，滤波器渐开） */
+        var o3 = ac.createOscillator(); o3.type = 'sawtooth';
+        o3.frequency.setValueAtTime(220, ac.currentTime);
+        o3.frequency.exponentialRampToValueAtTime(1760, ac.currentTime + DUR);
         var g3 = ac.createGain(); g3.gain.setValueAtTime(0.0001, ac.currentTime);
-        g3.gain.exponentialRampToValueAtTime(0.06, ac.currentTime + 16);
-        o1.connect(master); o2.connect(master); o3.connect(g3); g3.connect(master);
+        g3.gain.exponentialRampToValueAtTime(0.13, ac.currentTime + DUR);
+        var lp3 = ac.createBiquadFilter(); lp3.type = 'lowpass';
+        lp3.frequency.setValueAtTime(300, ac.currentTime);
+        lp3.frequency.exponentialRampToValueAtTime(8000, ac.currentTime + DUR);
+        o3.connect(g3); g3.connect(lp3); lp3.connect(master);
+
+        /* 噪声狂潮（whoosh 渐强） */
+        var buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        var n = ac.createBufferSource(); n.buffer = buf; n.loop = true;
+        var ng = ac.createGain(); ng.gain.setValueAtTime(0.0001, ac.currentTime);
+        ng.gain.exponentialRampToValueAtTime(0.28, ac.currentTime + DUR);
+        var nlp = ac.createBiquadFilter(); nlp.type = 'lowpass';
+        nlp.frequency.setValueAtTime(120, ac.currentTime);
+        nlp.frequency.exponentialRampToValueAtTime(6000, ac.currentTime + DUR);
+        n.connect(ng); ng.connect(nlp); nlp.connect(master);
+        n.start();
+
+        var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000;
         master.connect(lp); lp.connect(ac.destination);
+
         o1.start(); o2.start(); o3.start();
-        setTimeout(function(){
+
+        /* 加速的心跳（推到高潮） */
+        var beatGap = 1100;
+        function beat() {
           try {
             var t = ac.currentTime;
-            master.gain.setValueAtTime(0.0001, t);
-            o1.stop(t + 0.05); o2.stop(t + 0.05); o3.stop(t + 0.05);
+            var b = ac.createOscillator(); b.type = 'sine';
+            b.frequency.setValueAtTime(65, t);
+            b.frequency.exponentialRampToValueAtTime(38, t + 0.14);
+            var bg = ac.createGain();
+            bg.gain.setValueAtTime(0.0001, t);
+            bg.gain.exponentialRampToValueAtTime(0.5, t + 0.008);
+            bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+            b.connect(bg); bg.connect(master); b.start(t); b.stop(t + 0.22);
           } catch(e){}
-        }, 16000);
+          beatGap = Math.max(180, beatGap * 0.925);
+          beatTimer = setTimeout(beat, beatGap);
+        }
+        var beatTimer = setTimeout(beat, 300);
+
+        /* 顶点：戛然而止 */
+        setTimeout(function(){
+          try {
+            clearTimeout(beatTimer);
+            var t = ac.currentTime;
+            master.gain.setValueAtTime(0.0001, t);
+            o1.stop(t + 0.06); o2.stop(t + 0.06); o3.stop(t + 0.06); n.stop(t + 0.06);
+          } catch(e){}
+        }, DUR * 1000);
       } catch(e){}
     }
     startHum();

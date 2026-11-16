@@ -171,6 +171,8 @@
       _g.classList.add('show');
       setTimeout(function(){ _g.classList.remove('show'); }, 3200);
     }
+    var _h = document.getElementById('hint');
+    if (_h) _h.textContent = '别 回 头 · 向 前';
   }
 
   var stepTimer = 0;
@@ -234,6 +236,21 @@
         o.start();
       } catch (e) {}
     });
+
+    /* 第二遍回廊：压迫性低鸣（全程） */
+    if (RETURNING) {
+      try {
+        var dg = actx.createGain();
+        dg.gain.value = 0.06;
+        var d1 = actx.createOscillator();
+        d1.type = 'sine'; d1.frequency.value = 55;
+        var d2 = actx.createOscillator();
+        d2.type = 'sine'; d2.frequency.value = 56.5;
+        var dl = actx.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 180;
+        d1.connect(dg); d2.connect(dg); dg.connect(dl); dl.connect(master);
+        d1.start(); d2.start();
+      } catch(e) {}
+    }
 
     scheduleDrips();
   }
@@ -559,12 +576,14 @@
   var LIGHT_OFF = 3.5;
 
   function drawLights() {
+    var flick = RETURNING ? (Math.random() < 0.06 ? 0.2 : 0.75 + Math.random() * 0.25) : 1;
     var first = Math.floor((camZ - LIGHT_OFF) / LIGHT_GAP) * LIGHT_GAP + LIGHT_OFF;
     for (var Lz = first; Lz < camZ + MAXD; Lz += LIGHT_GAP) {
       var dz = Lz - camZ;
       if (dz < 0.5) continue;
       var fog = Math.exp(-dz * 0.052);
       if (fog < 0.03) continue;
+      var lf = fog * flick;
 
       var s = FOCAL / dz;
       var cx = SW * 0.5;
@@ -576,13 +595,13 @@
       /* 灯管 */
       var tw = Math.max(2, 0.30 * s);
       var th = Math.max(1, 0.05 * s);
-      ctx.fillStyle = 'rgba(215,225,235,' + (0.75 * fog) + ')';
+      ctx.fillStyle = 'rgba(215,225,235,' + (0.75 * lf) + ')';
       ctx.fillRect(Math.round(cx - tw / 2), Math.round(ceilY - th / 2), Math.round(tw), Math.round(th));
 
       /* 顶部辉光 */
       var gw = Math.max(12, 0.9 * s);
       var g = ctx.createRadialGradient(cx, ceilY, 0, cx, ceilY, gw);
-      g.addColorStop(0, 'rgba(170,195,220,' + (0.28 * fog) + ')');
+      g.addColorStop(0, 'rgba(170,195,220,' + (0.28 * lf) + ')');
       g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g;
       ctx.fillRect(cx - gw, ceilY - gw, gw * 2, gw * 2);
@@ -590,7 +609,7 @@
       /* 地面光池 */
       var pw = Math.max(12, 1.15 * s);
       var g2 = ctx.createRadialGradient(cx, floorY, 0, cx, floorY, pw);
-      g2.addColorStop(0, 'rgba(140,160,180,' + (0.15 * fog) + ')');
+      g2.addColorStop(0, 'rgba(140,160,180,' + (0.15 * lf) + ')');
       g2.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g2;
       ctx.fillRect(cx - pw, floorY - pw * 0.35, pw * 2, pw * 0.7);
@@ -598,12 +617,43 @@
   }
 
   function drawAtmosphere() {
+    if (RETURNING) {
+      var g = ctx.createLinearGradient(0, 0, 0, SH);
+      g.addColorStop(0.00, 'rgba(50,8,14,0.18)');
+      g.addColorStop(0.45, 'rgba(0,0,0,0)');
+      g.addColorStop(1.00, 'rgba(40,6,10,0.22)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, SW, SH);
+      return;
+    }
     var g = ctx.createLinearGradient(0, 0, 0, SH);
     g.addColorStop(0.00, 'rgba(62,84,116,0.10)');
     g.addColorStop(0.45, 'rgba(0,0,0,0)');
     g.addColorStop(1.00, 'rgba(30,34,42,0.14)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, SW, SH);
+  }
+
+  /* 第二遍回廊：暗红脉冲 + 偶发画面撕裂 */
+  function drawReturnGlitch() {
+    if (!RETURNING) return;
+    var pulse = 0.5 + 0.5 * Math.sin(elapsed * 1.2);
+    ctx.fillStyle = 'rgba(110,10,16,' + (0.05 + 0.05 * pulse) + ')';
+    ctx.fillRect(0, 0, SW, SH);
+
+    if (Math.random() < 0.05) {
+      var slices = 2 + ((Math.random() * 4) | 0);
+      for (var i = 0; i < slices; i++) {
+        var y = (Math.random() * SH) | 0;
+        var h = 1 + ((Math.random() * 8) | 0);
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.07 + Math.random() * 0.14) + ')';
+        ctx.fillRect(0, y, SW, h);
+      }
+      ctx.fillStyle = 'rgba(255,40,50,' + (0.14 + Math.random() * 0.2) + ')';
+      ctx.fillRect(0, (Math.random() * SH) | 0, SW, 1);
+      ctx.fillStyle = 'rgba(60,200,255,' + (0.14 + Math.random() * 0.2) + ')';
+      ctx.fillRect(0, (Math.random() * SH) | 0, SW, 1);
+    }
   }
 
   /* ==========================================================
@@ -672,8 +722,11 @@
      ========================================================== */
   function noiseLevel() {
     if (camZ < TRIG_NOISE) return 0;
-    if (camZ < TRIG_NOISE + 4) return Math.min(1, (camZ - TRIG_NOISE) / 4);
-    return Math.max(0.22, 1 - (camZ - TRIG_NOISE - 4) / 7);
+    var base;
+    if (camZ < TRIG_NOISE + 4) base = Math.min(1, (camZ - TRIG_NOISE) / 4);
+    else base = Math.max(0.22, 1 - (camZ - TRIG_NOISE - 4) / 7);
+    if (RETURNING) base = Math.min(1, base * 1.5 + 0.18);
+    return base;
   }
 
   function drawNoise(level) {
@@ -955,6 +1008,7 @@
       drawLights();
       drawDoor();
       drawAtmosphere();
+      drawReturnGlitch();
       drawNoise(noiseLevel());
       drawSubtitles();
     } else {
