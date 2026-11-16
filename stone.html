@@ -40,6 +40,7 @@ main{position:relative;z-index:4;text-align:center;width:min(88vw,520px);}
 
 #carve{margin-top:3.4rem;opacity:0;transition:opacity 2.4s ease 2.6s;}
 #carve.in{opacity:1;}
+#carve .q{font-size:11px;letter-spacing:.34em;color:#6a6a66;margin-bottom:1.2rem;}
 #carve input{
   width:min(60vw,180px);background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.14);
   padding:.5rem .1rem;color:#c9b48c;font-family:'Courier New',monospace;font-size:15px;letter-spacing:.4em;text-align:center;outline:none;caret-color:#c9b48c;
@@ -55,6 +56,8 @@ main{position:relative;z-index:4;text-align:center;width:min(88vw,520px);}
 #next.in{opacity:1;display:block;}
 #next a{color:#6a7288;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.16);padding-bottom:3px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:.4em;transition:color .4s,border-color .4s;}
 #next a:hover{color:#c6d0f4;border-color:rgba(160,175,255,.5);}
+body.pulled::after{content:'';position:fixed;inset:0;background:#fff;z-index:99;animation:pull .9s steps(3);}
+@keyframes pull{0%{opacity:0}20%{opacity:.9}40%{opacity:0}60%{opacity:.7}100%{opacity:0}}
 </style>
 </head>
 <body>
@@ -67,14 +70,15 @@ main{position:relative;z-index:4;text-align:center;width:min(88vw,520px);}
   <div class="stone"><span id="stone">NOX</span></div>
   <div class="line" id="line">——只剩下一个名字，刻在石头上。</div>
 
-  <div id="carve"><input id="name" type="text" autocomplete="off" spellcheck="false" placeholder="· · ·"></div>
+  <div id="carve">
+    <div class="q">刻下你自己的名字</div>
+    <input id="name" type="text" autocomplete="off" spellcheck="false" placeholder="· · ·">
+  </div>
 
   <div id="after">
     <p id="a1">石头没有回应。</p>
     <p id="a2" class="void">它只是把这个名字，刻了下去。</p>
   </div>
-
-  <div id="next"><a href="final.html">→</a></div>
 </main>
 
 <script>
@@ -88,13 +92,17 @@ main{position:relative;z-index:4;text-align:center;width:min(88vw,520px);}
   function done(){
     var v = name.value.trim();
     if(!v) return;
-    try { sessionStorage.setItem('umbra.name', v); } catch(e){}
+    try { sessionStorage.setItem('umbra.name', v); sessionStorage.setItem('umbra.return', '1'); } catch(e){}
     stone.textContent = v;
     document.getElementById('carve').style.opacity = '0';
     document.getElementById('after').style.display = 'block';
     setTimeout(function(){ document.getElementById('a1').classList.add('in'); }, 400);
     setTimeout(function(){ document.getElementById('a2').classList.add('in'); }, 1800);
-    setTimeout(function(){ document.getElementById('next').classList.add('in'); }, 3600);
+    /* 强制拉入回廊 */
+    setTimeout(function(){
+      document.body.classList.add('pulled');
+      setTimeout(function(){ window.location.href = 'corridor.html'; }, 900);
+    }, 3200);
   }
   name.addEventListener('keydown', function(e){ if(e.key === 'Enter') done(); });
   name.addEventListener('blur', done);

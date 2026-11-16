@@ -49,6 +49,34 @@
   #fallback.show{display:flex;}
   #fallback a{color:#8fa0e0;text-decoration:none;border:1px solid rgba(160,175,255,.4);padding:12px 28px;letter-spacing:.4em;}
   #fallback a:hover{background:rgba(160,175,255,.12);color:#fff;}
+  #glitch{
+    position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;
+    pointer-events:none;
+  }
+  #glitch.show{display:flex;}
+  #glitch::before{
+    content:'';position:fixed;inset:0;background:rgba(0,0,0,.85);
+    animation:gl-bg .14s steps(2) infinite;
+  }
+  #glitch .t{
+    position:relative;color:#e8ecff;font-family:'Courier New',monospace;
+    font-size:15px;letter-spacing:.5em;padding-left:.5em;white-space:nowrap;
+    text-shadow:3px 0 rgba(255,50,60,.8),-3px 0 rgba(60,200,255,.8);
+    animation:gl-j .16s steps(2) infinite;
+  }
+  @keyframes gl-bg{
+    0%,100%{transform:translate(0,0);opacity:.85}
+    25%{transform:translate(-8px,3px);opacity:.92}
+    50%{transform:translate(6px,-4px);opacity:.8}
+    75%{transform:translate(-4px,-2px);opacity:.94}
+  }
+  @keyframes gl-j{
+    0%,100%{transform:translate(0,0)}
+    20%{transform:translate(-3px,1px)}
+    40%{transform:translate(2px,-1px)}
+    60%{transform:translate(-2px,-2px)}
+    80%{transform:translate(3px,1px)}
+  }
 </style>
 </head>
 <body>
@@ -57,6 +85,7 @@
 <div id="vignette"></div>
 <div id="scan"></div>
 <div id="hint">按 住 · 向 前</div>
+<div id="glitch"><div class="t">有地方发生了变化</div></div>
 
 <div id="fallback">
   <div>连 接 中 断</div>
@@ -131,6 +160,18 @@
   var bob        = 0;
 
   var sub1 = -1, sub2 = -1, sub3 = -1;
+  var RETURNING = false, CARVED_NAME = '';
+  try { RETURNING = sessionStorage.getItem('umbra.return') === '1'; } catch(e) {}
+  try { CARVED_NAME = sessionStorage.getItem('umbra.name') || ''; } catch(e) {}
+
+  /* 第二遍回廊：错乱开场 */
+  if (RETURNING) {
+    var _g = document.getElementById('glitch');
+    if (_g) {
+      _g.classList.add('show');
+      setTimeout(function(){ _g.classList.remove('show'); }, 3200);
+    }
+  }
 
   var stepTimer = 0;
   var STEP_DIST = 1.15;
@@ -714,11 +755,6 @@
     var size = textSize();
     var now  = elapsed;
 
-    if (sub1 >= 0 && !scareTriggered) {
-      var a1 = fadeInOut(now, sub1, sub1 + 2.8, 0.8);
-      if (a1 > 0.01) drawCentered('本？是你吗', SH * 0.46, size, a1, '#e8ecff', 2);
-    }
-
     if (sub2 >= 0 && !scareTriggered) {
       var a2 = fadeInOut(now, sub2, sub2 + 3.4, 0.8);
       if (a2 > 0.01) {
@@ -730,7 +766,7 @@
     if (sub3 >= 0 && !scareTriggered) {
       var a3 = fadeInOut(now, sub3, sub3 + 3.6, 0.8);
       if (a3 > 0.01) {
-        drawCentered('门在等你，NOX在等你。', SH * 0.40, size, a3, '#ffffff', 1.2);
+        drawCentered(RETURNING && CARVED_NAME ? '门在等你，' + CARVED_NAME + '在等你。' : '门在等你，NOX在等你。', SH * 0.40, size, a3, '#ffffff', 1.2);
         drawCentered('别忘了，FOR FREEDOM！', SH * 0.54, size, a3, '#ffd6a0', 1.2);
       }
     }
@@ -882,7 +918,6 @@
       bob *= 0.90;
     }
 
-    if (camZ >= TRIG_SUB1 && sub1 < 0) sub1 = elapsed;
     if (camZ >= TRIG_SUB2 && sub2 < 0) sub2 = elapsed;
     if (camZ >= TRIG_SUB3 && sub3 < 0) sub3 = elapsed;
 

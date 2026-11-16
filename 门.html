@@ -227,6 +227,63 @@ button.loading{
   'use strict';
 
   /* ============================================================
+     结局：第二遍回廊之后 —— 黑屏 + 嗡鸣渐起 + 戛然而止
+     ============================================================ */
+  var IS_END = false;
+  try { IS_END = sessionStorage.getItem('umbra.return') === '1'; } catch(e){}
+  if (IS_END) {
+    blackScreenEnding();
+    return;
+  }
+
+  function blackScreenEnding() {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;z-index:99999;transition:opacity 3s ease;';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity = '1'; }); });
+
+    var started = false;
+    function startHum() {
+      if (started) return;
+      started = true;
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        var ac = new Ctx();
+        if (ac.state === 'suspended') ac.resume();
+        var master = ac.createGain();
+        master.gain.setValueAtTime(0.0001, ac.currentTime);
+        master.gain.exponentialRampToValueAtTime(0.8, ac.currentTime + 16);
+        var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 240;
+        var o1 = ac.createOscillator(); o1.type = 'sine';
+        o1.frequency.setValueAtTime(36, ac.currentTime);
+        o1.frequency.exponentialRampToValueAtTime(72, ac.currentTime + 16);
+        var o2 = ac.createOscillator(); o2.type = 'sine';
+        o2.frequency.setValueAtTime(36.6, ac.currentTime);
+        o2.frequency.exponentialRampToValueAtTime(73, ac.currentTime + 16);
+        var o3 = ac.createOscillator(); o3.type = 'sine';
+        o3.frequency.setValueAtTime(160, ac.currentTime);
+        o3.frequency.exponentialRampToValueAtTime(900, ac.currentTime + 16);
+        var g3 = ac.createGain(); g3.gain.setValueAtTime(0.0001, ac.currentTime);
+        g3.gain.exponentialRampToValueAtTime(0.06, ac.currentTime + 16);
+        o1.connect(master); o2.connect(master); o3.connect(g3); g3.connect(master);
+        master.connect(lp); lp.connect(ac.destination);
+        o1.start(); o2.start(); o3.start();
+        setTimeout(function(){
+          try {
+            var t = ac.currentTime;
+            master.gain.setValueAtTime(0.0001, t);
+            o1.stop(t + 0.05); o2.stop(t + 0.05); o3.stop(t + 0.05);
+          } catch(e){}
+        }, 16000);
+      } catch(e){}
+    }
+    startHum();
+    ['click','keydown','touchstart','pointerdown'].forEach(function(ev){
+      window.addEventListener(ev, startHum, { once: true, passive: true });
+    });
+  }
+
+  /* ============================================================
      混淆层
      ------------------------------------------------------------
      凭据不存明文，只存 XOR 后的十六进制串。
